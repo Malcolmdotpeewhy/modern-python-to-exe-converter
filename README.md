@@ -18,7 +18,7 @@
 ## 🚀 Quick Start
 
 ### Option 1: Download Standalone Executable (Recommended)
-1. **Download**: `ModernPy2ExeConverter_v4.0.exe` from [Releases](../../releases)
+1. **Download**: Go to [Releases](../../releases/latest) and download `ModernPy2ExeConverter_v4.0_WithCustomIcon.exe` (32.6MB)
 2. **Run**: Double-click the executable
 3. **Convert**: Add your Python files and click "Convert to EXE"
 
