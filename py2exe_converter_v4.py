@@ -28,6 +28,7 @@ class ModernPy2ExeConverter:
         self.root.title("Modern Python to EXE Converter v4.0")
         self.root.geometry("1200x800")
         self.root.minsize(1000, 700)
+        self.font_family = "Segoe UI"
         
         # Modern color scheme with transparency support
         # This will be replaced by theme system
@@ -38,7 +39,8 @@ class ModernPy2ExeConverter:
         
         # Set window transparency (Windows only)
         try:
-            self.root.wm_attributes('-alpha', 0.95)  # 95% opacity
+            alpha = self.default_settings.get('window_transparency', 0.98)
+            self.root.wm_attributes('-alpha', alpha)
         except:
             pass  # Fallback for systems that don't support transparency
         
@@ -55,9 +57,9 @@ class ModernPy2ExeConverter:
             'default_icon_output_dir': desktop_path,
             'auto_select_created_icons': True,
             'show_icon_notifications': True,
-            'window_transparency': 0.95,
+            'window_transparency': 0.98,
             'theme': 'dark',
-            'font_size': 9,
+            'font_size': 10,
             'corner_radius': 10
         }
         
@@ -98,22 +100,23 @@ class ModernPy2ExeConverter:
             'default_icon_output_dir': desktop_path,
             'auto_select_created_icons': True,
             'show_icon_notifications': True,
-            'window_transparency': 0.95,
+            'window_transparency': 0.98,
             'theme': 'dark',
-            'font_size': 9,
+            'font_size': 10,
             'corner_radius': 10,
             'custom_theme': {
                 'name': 'Custom',
-                'bg': '#2b2b2b',
-                'surface': '#3c3c3c',
-                'card': '#404040',
-                'border': '#555555',
-                'fg': '#ffffff',
-                'accent': '#0078d4',
-                'accent_hover': '#106ebe',
-                'success': '#16a085',
-                'warning': '#f39c12',
-                'error': '#e74c3c'
+                'bg': '#0f1115',
+                'surface': '#171a21',
+                'card': '#1f2430',
+                'border': '#2a2f3a',
+                'fg': '#f5f7ff',
+                'muted': '#9aa4b2',
+                'accent': '#4f8cff',
+                'accent_hover': '#3f7be0',
+                'success': '#2ecc71',
+                'warning': '#f5a524',
+                'error': '#ff6b6b'
             }
         }
         
@@ -121,81 +124,87 @@ class ModernPy2ExeConverter:
         self.available_themes = {
             'dark': {
                 'name': 'Dark',
-                'bg': '#1e1e1e',
-                'surface': '#252526',
-                'card': '#2d2d30',
-                'border': '#3f3f46',
-                'fg': '#ffffff',
-                'accent': '#0078d4',
-                'accent_hover': '#106ebe',
-                'success': '#107c10',
-                'warning': '#ff8c00',
-                'error': '#d13438'
+                'bg': '#0f1115',
+                'surface': '#171a21',
+                'card': '#1f2430',
+                'border': '#2a2f3a',
+                'fg': '#f5f7ff',
+                'muted': '#9aa4b2',
+                'accent': '#4f8cff',
+                'accent_hover': '#3f7be0',
+                'success': '#2ecc71',
+                'warning': '#f5a524',
+                'error': '#ff6b6b'
             },
             'light': {
                 'name': 'Light',
-                'bg': '#f0f0f0',
+                'bg': '#f6f7fb',
                 'surface': '#ffffff',
-                'card': '#f8f8f8',
-                'border': '#d0d0d0',
-                'fg': '#333333',
-                'accent': '#0078d4',
-                'accent_hover': '#106ebe',
-                'success': '#16a085',
-                'warning': '#f39c12',
-                'error': '#e74c3c'
+                'card': '#f1f3f8',
+                'border': '#d7dbe5',
+                'fg': '#1f2430',
+                'muted': '#6b7280',
+                'accent': '#3b82f6',
+                'accent_hover': '#2563eb',
+                'success': '#16a34a',
+                'warning': '#f59e0b',
+                'error': '#dc2626'
             },
             'blue': {
                 'name': 'Ocean Blue',
-                'bg': '#1e3a5f',
-                'surface': '#2d4f73',
-                'card': '#3a5f87',
-                'border': '#4a6f97',
-                'fg': '#ffffff',
+                'bg': '#0f2744',
+                'surface': '#183152',
+                'card': '#203a5c',
+                'border': '#2a466b',
+                'fg': '#f5f7ff',
+                'muted': '#b0c4de',
                 'accent': '#4fc3f7',
                 'accent_hover': '#29b6f6',
-                'success': '#66bb6a',
-                'warning': '#ffb74d',
-                'error': '#ef5350'
+                'success': '#4ade80',
+                'warning': '#fbbf24',
+                'error': '#f87171'
             },
             'green': {
                 'name': 'Forest Green',
-                'bg': '#1b4332',
-                'surface': '#2d5016',
-                'card': '#40531b',
-                'border': '#52681f',
-                'fg': '#ffffff',
-                'accent': '#81c784',
-                'accent_hover': '#66bb6a',
-                'success': '#a5d6a7',
-                'warning': '#ffcc02',
-                'error': '#ff5722'
+                'bg': '#0f2d23',
+                'surface': '#163a2c',
+                'card': '#1d4634',
+                'border': '#28543f',
+                'fg': '#f5f7ff',
+                'muted': '#a7cbb5',
+                'accent': '#6ee7b7',
+                'accent_hover': '#34d399',
+                'success': '#22c55e',
+                'warning': '#facc15',
+                'error': '#fb7185'
             },
             'purple': {
                 'name': 'Royal Purple',
-                'bg': '#3e2723',
-                'surface': '#4e342e',
-                'card': '#5d4037',
-                'border': '#6d4c41',
-                'fg': '#ffffff',
-                'accent': '#ba68c8',
-                'accent_hover': '#ab47bc',
-                'success': '#81c784',
-                'warning': '#ffb74d',
-                'error': '#e57373'
+                'bg': '#24112f',
+                'surface': '#2f1a3c',
+                'card': '#3b214a',
+                'border': '#49265a',
+                'fg': '#f5f7ff',
+                'muted': '#c4b5fd',
+                'accent': '#c084fc',
+                'accent_hover': '#a855f7',
+                'success': '#34d399',
+                'warning': '#f59e0b',
+                'error': '#fb7185'
             },
             'custom': {
                 'name': 'Custom',
-                'bg': '#2b2b2b',
-                'surface': '#3c3c3c',
-                'card': '#404040',
-                'border': '#555555',
-                'fg': '#ffffff',
-                'accent': '#0078d4',
-                'accent_hover': '#106ebe',
-                'success': '#16a085',
-                'warning': '#f39c12',
-                'error': '#e74c3c'
+                'bg': '#0f1115',
+                'surface': '#171a21',
+                'card': '#1f2430',
+                'border': '#2a2f3a',
+                'fg': '#f5f7ff',
+                'muted': '#9aa4b2',
+                'accent': '#4f8cff',
+                'accent_hover': '#3f7be0',
+                'success': '#2ecc71',
+                'warning': '#f5a524',
+                'error': '#ff6b6b'
             }
         }
         
@@ -301,17 +310,20 @@ class ModernPy2ExeConverter:
         """Configure modern ttk styles with enhanced appearance."""
         style = ttk.Style()
         style.theme_use('clam')
+        base_font_size = self.default_settings.get('font_size', 10)
         
         # Configure enhanced styles
         style.configure('TNotebook', 
                        background=self.colors['bg'],
-                       tabposition='n')
+                       tabposition='n',
+                       borderwidth=0)
         style.configure('TNotebook.Tab', 
                        background=self.colors['card'],
                        foreground=self.colors['fg'],
-                       padding=[20, 12],
+                       padding=[22, 12],
                        focuscolor='none',
-                       borderwidth=0)
+                       borderwidth=0,
+                       font=(self.font_family, base_font_size, 'bold'))
         style.map('TNotebook.Tab',
                  background=[('selected', self.colors['accent']),
                             ('active', self.colors['accent_hover'])],
@@ -324,10 +336,35 @@ class ModernPy2ExeConverter:
                        foreground=self.colors['fg'],
                        borderwidth=1,
                        relief='solid')
+        style.configure('TLabelFrame.Label',
+                       background=self.colors['bg'],
+                       foreground=self.colors['accent'],
+                       font=(self.font_family, base_font_size, 'bold'))
         style.configure('TLabel', 
                        background=self.colors['bg'],
                        foreground=self.colors['fg'],
-                       font=('Segoe UI', 9))
+                       font=(self.font_family, base_font_size))
+        style.configure('TEntry',
+                       fieldbackground=self.colors['surface'],
+                       foreground=self.colors['fg'],
+                       borderwidth=1,
+                       relief='solid')
+        style.map('TEntry',
+                  bordercolor=[('focus', self.colors['accent'])],
+                  lightcolor=[('focus', self.colors['accent'])],
+                  darkcolor=[('focus', self.colors['accent'])])
+        style.configure('TCombobox',
+                       fieldbackground=self.colors['surface'],
+                       background=self.colors['surface'],
+                       foreground=self.colors['fg'],
+                       arrowcolor=self.colors['fg'],
+                       borderwidth=1)
+        style.configure('TScrollbar',
+                       troughcolor=self.colors['bg'],
+                       background=self.colors['border'],
+                       bordercolor=self.colors['bg'],
+                       lightcolor=self.colors['border'],
+                       darkcolor=self.colors['border'])
         
         # Enhanced progressbar
         style.configure('TProgressbar',
@@ -677,6 +714,7 @@ Use Help menu to access guides and export files."""
         files_frame = ttk.LabelFrame(parent, text="📁 Python Files to Convert")
         files_frame.pack(fill='x', padx=15, pady=10)
         
+        base_font_size = self.default_settings.get('font_size', 10)
         # Files listbox with modern styling
         listbox_frame = tk.Frame(files_frame, bg=self.colors['bg'])
         listbox_frame.pack(fill='x', padx=15, pady=15)
@@ -691,7 +729,7 @@ Use Help menu to access guides and export files."""
                                        borderwidth=0,
                                        highlightthickness=1,
                                        highlightcolor=self.colors['accent'],
-                                       font=('Segoe UI', 9))
+                                       font=(self.font_family, base_font_size))
         self.files_listbox.pack(side='left', fill='both', expand=True)
         
         files_scrollbar = ttk.Scrollbar(listbox_frame, orient='vertical')
@@ -716,6 +754,7 @@ Use Help menu to access guides and export files."""
         output_frame = ttk.LabelFrame(parent, text="📂 Output Directory")
         output_frame.pack(fill='x', padx=15, pady=10)
         
+        base_font_size = self.default_settings.get('font_size', 10)
         dir_frame = tk.Frame(output_frame, bg=self.colors['bg'])
         dir_frame.pack(fill='x', padx=15, pady=15)
         
@@ -726,7 +765,7 @@ Use Help menu to access guides and export files."""
                                     borderwidth=0,
                                     highlightthickness=1,
                                     highlightcolor=self.colors['accent'],
-                                    font=('Segoe UI', 10))
+                                    font=(self.font_family, base_font_size + 1))
         self.output_entry.pack(side='left', fill='x', expand=True, padx=(0, 15))
         
         self.create_modern_button(dir_frame, "📁 Browse", 
@@ -737,6 +776,7 @@ Use Help menu to access guides and export files."""
         options_frame = ttk.LabelFrame(parent, text="⚙️ Conversion Options")
         options_frame.pack(fill='x', padx=15, pady=10)
         
+        base_font_size = self.default_settings.get('font_size', 10)
         # Basic options
         basic_frame = tk.Frame(options_frame, bg=self.colors['bg'])
         basic_frame.pack(fill='x', padx=15, pady=10)
@@ -768,7 +808,7 @@ Use Help menu to access guides and export files."""
                                   borderwidth=0,
                                   highlightthickness=1,
                                   highlightcolor=self.colors['accent'],
-                                  font=('Segoe UI', 10))
+                                  font=(self.font_family, base_font_size + 1))
         self.icon_entry.pack(side='left', fill='x', expand=True, padx=15)
         
         self.create_modern_button(icon_frame, "🔍 Browse", 
@@ -782,20 +822,21 @@ Use Help menu to access guides and export files."""
         hidden_frame = tk.Frame(parent, bg=self.colors['bg'])
         hidden_frame.pack(fill='x', padx=15, pady=10)
         
+        base_font_size = self.default_settings.get('font_size', 10)
         # Info label
         info_label = tk.Label(hidden_frame,
                              text="📦 Hidden Imports (Only add if auto-detection fails):",
                              bg=self.colors['bg'],
                              fg=self.colors['fg'],
-                             font=('Segoe UI', 9))
+                             font=(self.font_family, base_font_size))
         info_label.pack(anchor='w')
         
         # Helper text
         helper_text = tk.Label(hidden_frame,
                               text="💡 PyInstaller automatically detects most dependencies. Only add modules here if you encounter import errors.",
                               bg=self.colors['bg'],
-                              fg=self.colors['border'],
-                              font=('Segoe UI', 8),
+                              fg=self.colors.get('muted', self.colors['border']),
+                              font=(self.font_family, max(base_font_size - 1, 8)),
                               wraplength=600)
         helper_text.pack(anchor='w', pady=(0, 5))
         
@@ -811,7 +852,7 @@ Use Help menu to access guides and export files."""
                                         borderwidth=0,
                                         highlightthickness=1,
                                         highlightcolor=self.colors['accent'],
-                                        font=('Segoe UI', 9))
+                                        font=(self.font_family, base_font_size))
         self.hidden_listbox.pack(side='left', fill='both', expand=True)
         
         hidden_scrollbar = ttk.Scrollbar(hidden_container, orient='vertical')
@@ -833,6 +874,7 @@ Use Help menu to access guides and export files."""
         controls_frame = ttk.LabelFrame(parent, text="🚀 Conversion Controls")
         controls_frame.pack(fill='x', padx=15, pady=10)
         
+        base_font_size = self.default_settings.get('font_size', 10)
         # Convert button
         button_frame = tk.Frame(controls_frame, bg=self.colors['bg'])
         button_frame.pack(fill='x', padx=15, pady=15)
@@ -857,7 +899,7 @@ Use Help menu to access guides and export files."""
                                     text="Ready to convert",
                                     bg=self.colors['bg'],
                                     fg=self.colors['fg'],
-                                    font=('Segoe UI', 10))
+                                    font=(self.font_family, base_font_size + 1))
         self.status_label.pack(pady=10)
         
     def create_output_log(self, parent):
@@ -865,6 +907,7 @@ Use Help menu to access guides and export files."""
         log_frame = ttk.LabelFrame(parent, text="📋 Conversion Log")
         log_frame.pack(fill='both', expand=True, padx=15, pady=10)
         
+        base_font_size = self.default_settings.get('font_size', 10)
         # Log text widget with scrollbar
         log_container = tk.Frame(log_frame, bg=self.colors['bg'])
         log_container.pack(fill='both', expand=True, padx=15, pady=15)
@@ -879,7 +922,7 @@ Use Help menu to access guides and export files."""
                                   highlightcolor=self.colors['accent'],
                                   wrap=tk.WORD,
                                   state=tk.DISABLED,
-                                  font=('Consolas', 9))
+                                  font=('Consolas', max(base_font_size - 1, 9)))
         self.output_text.pack(side='left', fill='both', expand=True)
         
         log_scrollbar = ttk.Scrollbar(log_container, orient='vertical')
@@ -914,9 +957,10 @@ Use Help menu to access guides and export files."""
             'danger': {'bg': self.colors['error'], 'hover': '#b12328'}
         }
         
+        base_font_size = self.default_settings.get('font_size', 10)
         sizes = {
-            'normal': {'font': ('Segoe UI', 9), 'pady': 8, 'padx': 20},
-            'large': {'font': ('Segoe UI', 11, 'bold'), 'pady': 12, 'padx': 30}
+            'normal': {'font': (self.font_family, base_font_size), 'pady': 9, 'padx': 22},
+            'large': {'font': (self.font_family, base_font_size + 2, 'bold'), 'pady': 12, 'padx': 32}
         }
         
         style_config = styles.get(style, styles['default'])
@@ -927,8 +971,11 @@ Use Help menu to access guides and export files."""
                        command=command,
                        bg=style_config['bg'],
                        fg='white',
+                       activebackground=style_config['hover'],
+                       activeforeground='white',
                        font=size_config['font'],
                        borderwidth=0,
+                       highlightthickness=0,
                        pady=size_config['pady'],
                        padx=size_config['padx'],
                        cursor='hand2',
@@ -948,6 +995,7 @@ Use Help menu to access guides and export files."""
         
     def create_modern_checkbox(self, parent, text, variable):
         """Create a modern styled checkbox."""
+        base_font_size = self.default_settings.get('font_size', 10)
         cb = tk.Checkbutton(parent,
                            text=text,
                            variable=variable,
@@ -956,7 +1004,7 @@ Use Help menu to access guides and export files."""
                            selectcolor=self.colors['surface'],
                            activebackground=self.colors['bg'],
                            activeforeground=self.colors['fg'],
-                           font=('Segoe UI', 9),
+                           font=(self.font_family, base_font_size),
                            borderwidth=0,
                            highlightthickness=0)
         return cb
