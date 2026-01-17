@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import filedialog, messagebox, ttk
+from tkinter import filedialog, messagebox, ttk, font as tkfont
 import os
 import subprocess
 import sys
@@ -57,7 +57,7 @@ class ModernPy2ExeConverter:
             'show_icon_notifications': True,
             'window_transparency': 0.95,
             'theme': 'dark',
-            'font_size': 9,
+            'font_size': 10,
             'corner_radius': 10
         }
         
@@ -100,20 +100,20 @@ class ModernPy2ExeConverter:
             'show_icon_notifications': True,
             'window_transparency': 0.95,
             'theme': 'dark',
-            'font_size': 9,
+            'font_size': 10,
             'corner_radius': 10,
             'custom_theme': {
                 'name': 'Custom',
-                'bg': '#2b2b2b',
-                'surface': '#3c3c3c',
-                'card': '#404040',
-                'border': '#555555',
-                'fg': '#ffffff',
-                'accent': '#0078d4',
-                'accent_hover': '#106ebe',
-                'success': '#16a085',
-                'warning': '#f39c12',
-                'error': '#e74c3c'
+                'bg': '#0f172a',
+                'surface': '#111827',
+                'card': '#1f2937',
+                'border': '#334155',
+                'fg': '#f8fafc',
+                'accent': '#38bdf8',
+                'accent_hover': '#0ea5e9',
+                'success': '#22c55e',
+                'warning': '#f59e0b',
+                'error': '#ef4444'
             }
         }
         
@@ -121,81 +121,81 @@ class ModernPy2ExeConverter:
         self.available_themes = {
             'dark': {
                 'name': 'Dark',
-                'bg': '#1e1e1e',
-                'surface': '#252526',
-                'card': '#2d2d30',
-                'border': '#3f3f46',
-                'fg': '#ffffff',
-                'accent': '#0078d4',
-                'accent_hover': '#106ebe',
-                'success': '#107c10',
-                'warning': '#ff8c00',
-                'error': '#d13438'
+                'bg': '#0f172a',
+                'surface': '#111827',
+                'card': '#1f2937',
+                'border': '#334155',
+                'fg': '#f8fafc',
+                'accent': '#38bdf8',
+                'accent_hover': '#0ea5e9',
+                'success': '#22c55e',
+                'warning': '#f59e0b',
+                'error': '#ef4444'
             },
             'light': {
                 'name': 'Light',
-                'bg': '#f0f0f0',
+                'bg': '#f8fafc',
                 'surface': '#ffffff',
-                'card': '#f8f8f8',
-                'border': '#d0d0d0',
-                'fg': '#333333',
-                'accent': '#0078d4',
-                'accent_hover': '#106ebe',
-                'success': '#16a085',
-                'warning': '#f39c12',
-                'error': '#e74c3c'
+                'card': '#f1f5f9',
+                'border': '#e2e8f0',
+                'fg': '#0f172a',
+                'accent': '#2563eb',
+                'accent_hover': '#1d4ed8',
+                'success': '#16a34a',
+                'warning': '#d97706',
+                'error': '#dc2626'
             },
             'blue': {
                 'name': 'Ocean Blue',
-                'bg': '#1e3a5f',
-                'surface': '#2d4f73',
-                'card': '#3a5f87',
-                'border': '#4a6f97',
-                'fg': '#ffffff',
-                'accent': '#4fc3f7',
-                'accent_hover': '#29b6f6',
-                'success': '#66bb6a',
-                'warning': '#ffb74d',
-                'error': '#ef5350'
+                'bg': '#0f172a',
+                'surface': '#122447',
+                'card': '#1d335a',
+                'border': '#2b4b76',
+                'fg': '#e0f2fe',
+                'accent': '#38bdf8',
+                'accent_hover': '#0ea5e9',
+                'success': '#22c55e',
+                'warning': '#f59e0b',
+                'error': '#f87171'
             },
             'green': {
                 'name': 'Forest Green',
-                'bg': '#1b4332',
-                'surface': '#2d5016',
-                'card': '#40531b',
-                'border': '#52681f',
-                'fg': '#ffffff',
-                'accent': '#81c784',
-                'accent_hover': '#66bb6a',
-                'success': '#a5d6a7',
-                'warning': '#ffcc02',
-                'error': '#ff5722'
+                'bg': '#0f172a',
+                'surface': '#0f2f2a',
+                'card': '#15403a',
+                'border': '#1f5a52',
+                'fg': '#ecfdf5',
+                'accent': '#34d399',
+                'accent_hover': '#10b981',
+                'success': '#22c55e',
+                'warning': '#fbbf24',
+                'error': '#fb7185'
             },
             'purple': {
                 'name': 'Royal Purple',
-                'bg': '#3e2723',
-                'surface': '#4e342e',
-                'card': '#5d4037',
-                'border': '#6d4c41',
-                'fg': '#ffffff',
-                'accent': '#ba68c8',
-                'accent_hover': '#ab47bc',
-                'success': '#81c784',
-                'warning': '#ffb74d',
-                'error': '#e57373'
+                'bg': '#0f172a',
+                'surface': '#24153d',
+                'card': '#2f1b4f',
+                'border': '#3b2363',
+                'fg': '#f5f3ff',
+                'accent': '#a78bfa',
+                'accent_hover': '#8b5cf6',
+                'success': '#22c55e',
+                'warning': '#f59e0b',
+                'error': '#f87171'
             },
             'custom': {
                 'name': 'Custom',
-                'bg': '#2b2b2b',
-                'surface': '#3c3c3c',
-                'card': '#404040',
-                'border': '#555555',
-                'fg': '#ffffff',
-                'accent': '#0078d4',
-                'accent_hover': '#106ebe',
-                'success': '#16a085',
-                'warning': '#f39c12',
-                'error': '#e74c3c'
+                'bg': '#0f172a',
+                'surface': '#111827',
+                'card': '#1f2937',
+                'border': '#334155',
+                'fg': '#f8fafc',
+                'accent': '#38bdf8',
+                'accent_hover': '#0ea5e9',
+                'success': '#22c55e',
+                'warning': '#f59e0b',
+                'error': '#ef4444'
             }
         }
         
@@ -301,6 +301,15 @@ class ModernPy2ExeConverter:
         """Configure modern ttk styles with enhanced appearance."""
         style = ttk.Style()
         style.theme_use('clam')
+
+        self.base_font_size = max(9, int(self.default_settings.get('font_size', 10)))
+        default_font = tkfont.nametofont("TkDefaultFont")
+        default_font.configure(family="Segoe UI", size=self.base_font_size)
+        text_font = tkfont.nametofont("TkTextFont")
+        text_font.configure(family="Segoe UI", size=self.base_font_size)
+        fixed_font = tkfont.nametofont("TkFixedFont")
+        fixed_font.configure(family="Cascadia Code", size=max(self.base_font_size - 1, 9))
+        self.mono_font = (fixed_font.cget("family"), fixed_font.cget("size"))
         
         # Configure enhanced styles
         style.configure('TNotebook', 
@@ -309,9 +318,10 @@ class ModernPy2ExeConverter:
         style.configure('TNotebook.Tab', 
                        background=self.colors['card'],
                        foreground=self.colors['fg'],
-                       padding=[20, 12],
+                       padding=[22, 10],
                        focuscolor='none',
-                       borderwidth=0)
+                       borderwidth=0,
+                       font=('Segoe UI Semibold', self.base_font_size))
         style.map('TNotebook.Tab',
                  background=[('selected', self.colors['accent']),
                             ('active', self.colors['accent_hover'])],
@@ -320,14 +330,32 @@ class ModernPy2ExeConverter:
         
         style.configure('TFrame', background=self.colors['bg'])
         style.configure('TLabelFrame', 
-                       background=self.colors['bg'],
+                       background=self.colors['surface'],
                        foreground=self.colors['fg'],
                        borderwidth=1,
                        relief='solid')
-        style.configure('TLabel', 
-                       background=self.colors['bg'],
+        style.configure('TLabelframe.Label',
+                       background=self.colors['surface'],
                        foreground=self.colors['fg'],
-                       font=('Segoe UI', 9))
+                       font=('Segoe UI Semibold', self.base_font_size))
+        style.configure('TLabel', 
+                       background=self.colors['surface'],
+                       foreground=self.colors['fg'],
+                       font=('Segoe UI', self.base_font_size))
+        style.configure('TCombobox',
+                       fieldbackground=self.colors['card'],
+                       background=self.colors['surface'],
+                       foreground=self.colors['fg'],
+                       arrowcolor=self.colors['fg'])
+        style.map('TCombobox',
+                 fieldbackground=[('readonly', self.colors['card'])],
+                 foreground=[('readonly', self.colors['fg'])],
+                 background=[('readonly', self.colors['surface'])])
+        style.configure('TScrollbar',
+                       background=self.colors['surface'],
+                       troughcolor=self.colors['bg'],
+                       bordercolor=self.colors['bg'],
+                       arrowcolor=self.colors['fg'])
         
         # Enhanced progressbar
         style.configure('TProgressbar',
@@ -408,10 +436,10 @@ class ModernPy2ExeConverter:
         header_frame.pack(fill='x', padx=15, pady=10)
         
         # Welcome message
-        welcome_text = tk.Text(header_frame, height=4, bg=self.colors['surface'], 
+        welcome_text = tk.Text(header_frame, height=4, bg=self.colors['card'], 
                               fg=self.colors['fg'], wrap=tk.WORD, 
                               borderwidth=0, highlightthickness=0,
-                              font=('Segoe UI', 11))
+                              font=('Segoe UI', self.base_font_size + 2))
         welcome_text.pack(fill='x', padx=15, pady=15)
         
         welcome_text.insert('1.0', 
@@ -426,7 +454,7 @@ class ModernPy2ExeConverter:
         features_frame = ttk.LabelFrame(parent, text="🌟 Key Features")
         features_frame.pack(fill='x', padx=15, pady=10)
         
-        features_container = tk.Frame(features_frame, bg=self.colors['bg'])
+        features_container = tk.Frame(features_frame, bg=self.colors['surface'])
         features_container.pack(fill='x', padx=15, pady=15)
         
         # Create feature cards in a grid
@@ -445,8 +473,9 @@ class ModernPy2ExeConverter:
             row = i // 2
             col = i % 2
             
-            feature_card = tk.Frame(features_container, bg=self.colors['card'], 
-                                   relief='solid', borderwidth=1)
+            feature_card = tk.Frame(features_container, bg=self.colors['card'],
+                                   relief='flat', borderwidth=0,
+                                   highlightthickness=1, highlightbackground=self.colors['border'])
             feature_card.grid(row=row, column=col, padx=10, pady=5, sticky='ew')
             
             # Configure grid weights
@@ -458,18 +487,18 @@ class ModernPy2ExeConverter:
             
             emoji_label = tk.Label(header_frame, text=emoji, 
                                   bg=self.colors['card'], fg=self.colors['fg'],
-                                  font=('Segoe UI', 16))
+                                  font=('Segoe UI', self.base_font_size + 6))
             emoji_label.pack(side='left')
             
             title_label = tk.Label(header_frame, text=title,
                                   bg=self.colors['card'], fg=self.colors['accent'],
-                                  font=('Segoe UI', 10, 'bold'))
+                                  font=('Segoe UI Semibold', self.base_font_size + 1))
             title_label.pack(side='left', padx=(10, 0))
             
             # Feature description
             desc_label = tk.Label(feature_card, text=description,
                                  bg=self.colors['card'], fg=self.colors['fg'],
-                                 font=('Segoe UI', 9), wraplength=250,
+                                 font=('Segoe UI', self.base_font_size), wraplength=250,
                                  justify='left')
             desc_label.pack(fill='x', padx=10, pady=(0, 10))
     
@@ -478,7 +507,7 @@ class ModernPy2ExeConverter:
         quickstart_frame = ttk.LabelFrame(parent, text="🚀 Quick Start Guide")
         quickstart_frame.pack(fill='x', padx=15, pady=10)
         
-        steps_container = tk.Frame(quickstart_frame, bg=self.colors['bg'])
+        steps_container = tk.Frame(quickstart_frame, bg=self.colors['surface'])
         steps_container.pack(fill='x', padx=15, pady=15)
         
         steps = [
@@ -491,13 +520,14 @@ class ModernPy2ExeConverter:
         ]
         
         for step in steps:
-            step_frame = tk.Frame(steps_container, bg=self.colors['surface'],
-                                 relief='solid', borderwidth=1)
+            step_frame = tk.Frame(steps_container, bg=self.colors['card'],
+                                 relief='flat', borderwidth=0,
+                                 highlightthickness=1, highlightbackground=self.colors['border'])
             step_frame.pack(fill='x', pady=2)
             
             step_label = tk.Label(step_frame, text=step,
-                                 bg=self.colors['surface'], fg=self.colors['fg'],
-                                 font=('Segoe UI', 10), anchor='w')
+                                 bg=self.colors['card'], fg=self.colors['fg'],
+                                 font=('Segoe UI', self.base_font_size + 1), anchor='w')
             step_label.pack(fill='x', padx=15, pady=8)
     
     def create_tips_section(self, parent):
@@ -505,7 +535,7 @@ class ModernPy2ExeConverter:
         tips_frame = ttk.LabelFrame(parent, text="💡 Tips & Tricks")
         tips_frame.pack(fill='x', padx=15, pady=10)
         
-        tips_container = tk.Frame(tips_frame, bg=self.colors['bg'])
+        tips_container = tk.Frame(tips_frame, bg=self.colors['surface'])
         tips_container.pack(fill='x', padx=15, pady=15)
         
         tips = [
@@ -519,12 +549,13 @@ class ModernPy2ExeConverter:
         
         for tip in tips:
             tip_frame = tk.Frame(tips_container, bg=self.colors['card'],
-                                relief='solid', borderwidth=1)
+                                relief='flat', borderwidth=0,
+                                highlightthickness=1, highlightbackground=self.colors['border'])
             tip_frame.pack(fill='x', pady=2)
             
             tip_label = tk.Label(tip_frame, text=tip,
                                 bg=self.colors['card'], fg=self.colors['fg'],
-                                font=('Segoe UI', 9), anchor='w', wraplength=800)
+                                font=('Segoe UI', self.base_font_size), anchor='w', wraplength=800)
             tip_label.pack(fill='x', padx=15, pady=8)
     
     def create_version_info_section(self, parent):
@@ -532,7 +563,7 @@ class ModernPy2ExeConverter:
         version_frame = ttk.LabelFrame(parent, text="📋 System Information")
         version_frame.pack(fill='x', padx=15, pady=10)
         
-        info_container = tk.Frame(version_frame, bg=self.colors['bg'])
+        info_container = tk.Frame(version_frame, bg=self.colors['surface'])
         info_container.pack(fill='x', padx=15, pady=15)
         
         # System information
@@ -548,12 +579,12 @@ class ModernPy2ExeConverter:
         
         for info in system_info:
             info_label = tk.Label(info_container, text=info,
-                                 bg=self.colors['bg'], fg=self.colors['fg'],
-                                 font=('Consolas', 9), anchor='w')
+                                 bg=self.colors['surface'], fg=self.colors['fg'],
+                                 font=self.mono_font, anchor='w')
             info_label.pack(fill='x', pady=2)
         
         # Buttons frame
-        buttons_frame = tk.Frame(info_container, bg=self.colors['bg'])
+        buttons_frame = tk.Frame(info_container, bg=self.colors['surface'])
         buttons_frame.pack(fill='x', pady=(15, 0))
         
         # Check PyInstaller button
@@ -678,20 +709,21 @@ Use Help menu to access guides and export files."""
         files_frame.pack(fill='x', padx=15, pady=10)
         
         # Files listbox with modern styling
-        listbox_frame = tk.Frame(files_frame, bg=self.colors['bg'])
+        listbox_frame = tk.Frame(files_frame, bg=self.colors['surface'])
         listbox_frame.pack(fill='x', padx=15, pady=15)
         
         self.files_listbox = tk.Listbox(listbox_frame, 
                                        selectmode=tk.MULTIPLE,
-                                       bg=self.colors['surface'],
+                                       bg=self.colors['card'],
                                        fg=self.colors['fg'],
                                        selectbackground=self.colors['accent'],
                                        selectforeground='white',
                                        height=5,
                                        borderwidth=0,
                                        highlightthickness=1,
+                                       highlightbackground=self.colors['border'],
                                        highlightcolor=self.colors['accent'],
-                                       font=('Segoe UI', 9))
+                                       font=('Segoe UI', self.base_font_size))
         self.files_listbox.pack(side='left', fill='both', expand=True)
         
         files_scrollbar = ttk.Scrollbar(listbox_frame, orient='vertical')
@@ -701,7 +733,7 @@ Use Help menu to access guides and export files."""
         files_scrollbar.config(command=self.files_listbox.yview)
         
         # Buttons frame
-        buttons_frame = tk.Frame(files_frame, bg=self.colors['bg'])
+        buttons_frame = tk.Frame(files_frame, bg=self.colors['surface'])
         buttons_frame.pack(fill='x', padx=15, pady=10)
         
         self.create_modern_button(buttons_frame, "➕ Add Files", 
@@ -716,17 +748,18 @@ Use Help menu to access guides and export files."""
         output_frame = ttk.LabelFrame(parent, text="📂 Output Directory")
         output_frame.pack(fill='x', padx=15, pady=10)
         
-        dir_frame = tk.Frame(output_frame, bg=self.colors['bg'])
+        dir_frame = tk.Frame(output_frame, bg=self.colors['surface'])
         dir_frame.pack(fill='x', padx=15, pady=15)
         
         self.output_entry = tk.Entry(dir_frame, 
-                                    bg=self.colors['surface'],
+                                    bg=self.colors['card'],
                                     fg=self.colors['fg'],
                                     insertbackground=self.colors['fg'],
                                     borderwidth=0,
                                     highlightthickness=1,
+                                    highlightbackground=self.colors['border'],
                                     highlightcolor=self.colors['accent'],
-                                    font=('Segoe UI', 10))
+                                    font=('Segoe UI', self.base_font_size + 1))
         self.output_entry.pack(side='left', fill='x', expand=True, padx=(0, 15))
         
         self.create_modern_button(dir_frame, "📁 Browse", 
@@ -738,7 +771,7 @@ Use Help menu to access guides and export files."""
         options_frame.pack(fill='x', padx=15, pady=10)
         
         # Basic options
-        basic_frame = tk.Frame(options_frame, bg=self.colors['bg'])
+        basic_frame = tk.Frame(options_frame, bg=self.colors['surface'])
         basic_frame.pack(fill='x', padx=15, pady=10)
         
         self.onefile_var = tk.BooleanVar(value=True)
@@ -756,19 +789,20 @@ Use Help menu to access guides and export files."""
         cb3.pack(side='left', padx=15)
         
         # Icon selection
-        icon_frame = tk.Frame(options_frame, bg=self.colors['bg'])
+        icon_frame = tk.Frame(options_frame, bg=self.colors['surface'])
         icon_frame.pack(fill='x', padx=15, pady=10)
         
         ttk.Label(icon_frame, text="🎨 Icon File (optional):").pack(side='left')
         
         self.icon_entry = tk.Entry(icon_frame,
-                                  bg=self.colors['surface'],
+                                  bg=self.colors['card'],
                                   fg=self.colors['fg'],
                                   insertbackground=self.colors['fg'],
                                   borderwidth=0,
                                   highlightthickness=1,
+                                  highlightbackground=self.colors['border'],
                                   highlightcolor=self.colors['accent'],
-                                  font=('Segoe UI', 10))
+                                  font=('Segoe UI', self.base_font_size + 1))
         self.icon_entry.pack(side='left', fill='x', expand=True, padx=15)
         
         self.create_modern_button(icon_frame, "🔍 Browse", 
@@ -779,39 +813,40 @@ Use Help menu to access guides and export files."""
         
     def create_hidden_imports_section(self, parent):
         """Create the hidden imports management section."""
-        hidden_frame = tk.Frame(parent, bg=self.colors['bg'])
+        hidden_frame = tk.Frame(parent, bg=self.colors['surface'])
         hidden_frame.pack(fill='x', padx=15, pady=10)
         
         # Info label
         info_label = tk.Label(hidden_frame,
                              text="📦 Hidden Imports (Only add if auto-detection fails):",
-                             bg=self.colors['bg'],
+                             bg=self.colors['surface'],
                              fg=self.colors['fg'],
-                             font=('Segoe UI', 9))
+                             font=('Segoe UI', self.base_font_size))
         info_label.pack(anchor='w')
         
         # Helper text
         helper_text = tk.Label(hidden_frame,
                               text="💡 PyInstaller automatically detects most dependencies. Only add modules here if you encounter import errors.",
-                              bg=self.colors['bg'],
+                              bg=self.colors['surface'],
                               fg=self.colors['border'],
-                              font=('Segoe UI', 8),
+                              font=('Segoe UI', self.base_font_size - 1),
                               wraplength=600)
         helper_text.pack(anchor='w', pady=(0, 5))
         
-        hidden_container = tk.Frame(hidden_frame, bg=self.colors['bg'])
+        hidden_container = tk.Frame(hidden_frame, bg=self.colors['surface'])
         hidden_container.pack(fill='x', pady=10)
         
         self.hidden_listbox = tk.Listbox(hidden_container,
-                                        bg=self.colors['surface'],
+                                        bg=self.colors['card'],
                                         fg=self.colors['fg'],
                                         selectbackground=self.colors['accent'],
                                         selectforeground='white',
                                         height=3,
                                         borderwidth=0,
                                         highlightthickness=1,
+                                        highlightbackground=self.colors['border'],
                                         highlightcolor=self.colors['accent'],
-                                        font=('Segoe UI', 9))
+                                        font=('Segoe UI', self.base_font_size))
         self.hidden_listbox.pack(side='left', fill='both', expand=True)
         
         hidden_scrollbar = ttk.Scrollbar(hidden_container, orient='vertical')
@@ -820,7 +855,7 @@ Use Help menu to access guides and export files."""
         self.hidden_listbox.config(yscrollcommand=hidden_scrollbar.set)
         hidden_scrollbar.config(command=self.hidden_listbox.yview)
         
-        hidden_buttons = tk.Frame(hidden_frame, bg=self.colors['bg'])
+        hidden_buttons = tk.Frame(hidden_frame, bg=self.colors['surface'])
         hidden_buttons.pack(fill='x', pady=10)
         
         self.create_modern_button(hidden_buttons, "➕ Add Import", 
@@ -834,7 +869,7 @@ Use Help menu to access guides and export files."""
         controls_frame.pack(fill='x', padx=15, pady=10)
         
         # Convert button
-        button_frame = tk.Frame(controls_frame, bg=self.colors['bg'])
+        button_frame = tk.Frame(controls_frame, bg=self.colors['surface'])
         button_frame.pack(fill='x', padx=15, pady=15)
         
         self.convert_btn = self.create_modern_button(button_frame, "🔄 Convert to EXE",
@@ -855,9 +890,9 @@ Use Help menu to access guides and export files."""
         # Status label
         self.status_label = tk.Label(controls_frame,
                                     text="Ready to convert",
-                                    bg=self.colors['bg'],
+                                    bg=self.colors['surface'],
                                     fg=self.colors['fg'],
-                                    font=('Segoe UI', 10))
+                                    font=('Segoe UI', self.base_font_size + 1))
         self.status_label.pack(pady=10)
         
     def create_output_log(self, parent):
@@ -866,20 +901,21 @@ Use Help menu to access guides and export files."""
         log_frame.pack(fill='both', expand=True, padx=15, pady=10)
         
         # Log text widget with scrollbar
-        log_container = tk.Frame(log_frame, bg=self.colors['bg'])
+        log_container = tk.Frame(log_frame, bg=self.colors['surface'])
         log_container.pack(fill='both', expand=True, padx=15, pady=15)
         
         self.output_text = tk.Text(log_container,
-                                  bg=self.colors['surface'],
+                                  bg=self.colors['card'],
                                   fg=self.colors['fg'],
                                   insertbackground=self.colors['fg'],
                                   height=8,
                                   borderwidth=0,
                                   highlightthickness=1,
+                                  highlightbackground=self.colors['border'],
                                   highlightcolor=self.colors['accent'],
                                   wrap=tk.WORD,
                                   state=tk.DISABLED,
-                                  font=('Consolas', 9))
+                                  font=self.mono_font)
         self.output_text.pack(side='left', fill='both', expand=True)
         
         log_scrollbar = ttk.Scrollbar(log_container, orient='vertical')
@@ -889,7 +925,7 @@ Use Help menu to access guides and export files."""
         log_scrollbar.config(command=self.output_text.yview)
         
         # Log controls
-        log_controls = tk.Frame(log_frame, bg=self.colors['bg'])
+        log_controls = tk.Frame(log_frame, bg=self.colors['surface'])
         log_controls.pack(fill='x', padx=15, pady=10)
         
         self.create_modern_button(log_controls, "🗑️ Clear Log", 
@@ -907,16 +943,36 @@ Use Help menu to access guides and export files."""
     def create_modern_button(self, parent, text, command, side, style='default', size='normal'):
         """Create a modern styled button with enhanced appearance."""
         styles = {
-            'default': {'bg': self.colors['card'], 'hover': self.colors['border']},
-            'primary': {'bg': self.colors['accent'], 'hover': self.colors['accent_hover']},
-            'success': {'bg': self.colors['success'], 'hover': '#0e6e0e'},
-            'warning': {'bg': self.colors['warning'], 'hover': '#e67c00'},
-            'danger': {'bg': self.colors['error'], 'hover': '#b12328'}
+            'default': {
+                'bg': self.colors['card'],
+                'hover': self.colors['surface'],
+                'fg': self.colors['fg']
+            },
+            'primary': {
+                'bg': self.colors['accent'],
+                'hover': self.colors['accent_hover'],
+                'fg': 'white'
+            },
+            'success': {
+                'bg': self.colors['success'],
+                'hover': '#16a34a',
+                'fg': 'white'
+            },
+            'warning': {
+                'bg': self.colors['warning'],
+                'hover': '#d97706',
+                'fg': 'white'
+            },
+            'danger': {
+                'bg': self.colors['error'],
+                'hover': '#dc2626',
+                'fg': 'white'
+            }
         }
         
         sizes = {
-            'normal': {'font': ('Segoe UI', 9), 'pady': 8, 'padx': 20},
-            'large': {'font': ('Segoe UI', 11, 'bold'), 'pady': 12, 'padx': 30}
+            'normal': {'font': ('Segoe UI Semibold', self.base_font_size), 'pady': 8, 'padx': 20},
+            'large': {'font': ('Segoe UI Semibold', self.base_font_size + 2), 'pady': 12, 'padx': 30}
         }
         
         style_config = styles.get(style, styles['default'])
@@ -926,9 +982,14 @@ Use Help menu to access guides and export files."""
                        text=text,
                        command=command,
                        bg=style_config['bg'],
-                       fg='white',
+                       fg=style_config['fg'],
+                       activebackground=style_config['hover'],
+                       activeforeground=style_config['fg'],
                        font=size_config['font'],
                        borderwidth=0,
+                       highlightthickness=1,
+                       highlightbackground=self.colors['border'],
+                       highlightcolor=self.colors['accent'],
                        pady=size_config['pady'],
                        padx=size_config['padx'],
                        cursor='hand2',
@@ -951,14 +1012,15 @@ Use Help menu to access guides and export files."""
         cb = tk.Checkbutton(parent,
                            text=text,
                            variable=variable,
-                           bg=self.colors['bg'],
+                           bg=self.colors['surface'],
                            fg=self.colors['fg'],
-                           selectcolor=self.colors['surface'],
-                           activebackground=self.colors['bg'],
+                           selectcolor=self.colors['card'],
+                           activebackground=self.colors['surface'],
                            activeforeground=self.colors['fg'],
-                           font=('Segoe UI', 9),
+                           font=('Segoe UI', self.base_font_size),
                            borderwidth=0,
-                           highlightthickness=0)
+                           highlightthickness=0,
+                           cursor='hand2')
         return cb
     
     # File and directory selection methods
@@ -1012,7 +1074,7 @@ Use Help menu to access guides and export files."""
         dialog = tk.Toplevel(self.root)
         dialog.title("Add Hidden Import")
         dialog.geometry("400x150")
-        dialog.configure(bg=self.colors['bg'])
+        dialog.configure(bg=self.colors['surface'])
         dialog.resizable(False, False)
         
         # Center the dialog
@@ -1021,18 +1083,21 @@ Use Help menu to access guides and export files."""
         
         # Module name entry
         tk.Label(dialog, text="Module name:", 
-                bg=self.colors['bg'], fg=self.colors['fg'],
-                font=('Segoe UI', 10)).pack(pady=10)
+                bg=self.colors['surface'], fg=self.colors['fg'],
+                font=('Segoe UI', self.base_font_size + 1)).pack(pady=10)
         
         entry_module = tk.Entry(dialog, width=40,
-                               bg=self.colors['surface'],
+                               bg=self.colors['card'],
                                fg=self.colors['fg'],
                                insertbackground=self.colors['fg'],
-                               font=('Segoe UI', 10))
+                               highlightthickness=1,
+                               highlightbackground=self.colors['border'],
+                               highlightcolor=self.colors['accent'],
+                               font=('Segoe UI', self.base_font_size + 1))
         entry_module.pack(pady=5)
         
         # Buttons
-        button_frame = tk.Frame(dialog, bg=self.colors['bg'])
+        button_frame = tk.Frame(dialog, bg=self.colors['surface'])
         button_frame.pack(pady=15)
         
         def add_to_list():
@@ -1335,26 +1400,27 @@ Use Help menu to access guides and export files."""
         creator_frame.pack(fill='x', padx=15, pady=10)
         
         # Source image selection
-        source_frame = tk.Frame(creator_frame, bg=self.colors['bg'])
+        source_frame = tk.Frame(creator_frame, bg=self.colors['surface'])
         source_frame.pack(fill='x', padx=15, pady=15)
         
         ttk.Label(source_frame, text="Source Image:").pack(side='left')
         
         self.source_image_entry = tk.Entry(source_frame,
-                                          bg=self.colors['surface'],
+                                          bg=self.colors['card'],
                                           fg=self.colors['fg'],
                                           insertbackground=self.colors['fg'],
                                           borderwidth=0,
                                           highlightthickness=1,
+                                          highlightbackground=self.colors['border'],
                                           highlightcolor=self.colors['accent'],
-                                          font=('Segoe UI', 10))
+                                          font=('Segoe UI', self.base_font_size + 1))
         self.source_image_entry.pack(side='left', fill='x', expand=True, padx=15)
         
         self.create_modern_button(source_frame, "📁 Browse", 
                                  lambda: self.select_source_image(), 'right', style='primary')
         
         # Icon shape selection
-        shape_frame = tk.Frame(creator_frame, bg=self.colors['bg'])
+        shape_frame = tk.Frame(creator_frame, bg=self.colors['surface'])
         shape_frame.pack(fill='x', padx=15, pady=10)
         
         ttk.Label(shape_frame, text="Icon Shape:").pack(side='left')
@@ -1366,13 +1432,14 @@ Use Help menu to access guides and export files."""
         shape_dropdown.pack(side='left', padx=15)
         
         # Preview frame
-        preview_frame = tk.Frame(creator_frame, bg=self.colors['bg'])
+        preview_frame = tk.Frame(creator_frame, bg=self.colors['surface'])
         preview_frame.pack(fill='x', padx=15, pady=10)
         
         ttk.Label(preview_frame, text="Preview:").pack(side='left')
         
-        self.preview_frame = tk.Frame(preview_frame, bg=self.colors['surface'],
-                                     width=100, height=100, relief='solid', borderwidth=1)
+        self.preview_frame = tk.Frame(preview_frame, bg=self.colors['card'],
+                                     width=100, height=100, relief='flat', borderwidth=0,
+                                     highlightthickness=1, highlightbackground=self.colors['border'])
         self.preview_frame.pack(side='left', padx=15)
         self.preview_frame.pack_propagate(False)
         
@@ -1381,20 +1448,20 @@ Use Help menu to access guides and export files."""
         shape_dropdown.bind('<<ComboboxSelected>>', lambda e: self.update_icon_preview())
         
         # Icon size options
-        size_frame = tk.Frame(creator_frame, bg=self.colors['bg'])
+        size_frame = tk.Frame(creator_frame, bg=self.colors['surface'])
         size_frame.pack(fill='x', padx=15, pady=10)
         
         ttk.Label(size_frame, text="Icon Sizes:").pack(side='left')
         
         # Create a frame for checkboxes using pack manager
-        checkbox_frame = tk.Frame(size_frame, bg=self.colors['bg'])
+        checkbox_frame = tk.Frame(size_frame, bg=self.colors['surface'])
         checkbox_frame.pack(side='left', padx=15)
         
         self.size_vars = {}
         sizes = ['16x16', '32x32', '48x48', '64x64', '128x128', '256x256']
-        row1_frame = tk.Frame(checkbox_frame, bg=self.colors['bg'])
+        row1_frame = tk.Frame(checkbox_frame, bg=self.colors['surface'])
         row1_frame.pack(fill='x')
-        row2_frame = tk.Frame(checkbox_frame, bg=self.colors['bg'])
+        row2_frame = tk.Frame(checkbox_frame, bg=self.colors['surface'])
         row2_frame.pack(fill='x')
         
         for i, size in enumerate(sizes):
@@ -1405,7 +1472,7 @@ Use Help menu to access guides and export files."""
             cb.pack(side='left', padx=10)
         
         # Create icon button
-        create_frame = tk.Frame(creator_frame, bg=self.colors['bg'])
+        create_frame = tk.Frame(creator_frame, bg=self.colors['surface'])
         create_frame.pack(fill='x', padx=15, pady=15)
         
         self.create_icon_btn = self.create_modern_button(create_frame, "🎨 Create Shaped Icon",
@@ -1417,19 +1484,20 @@ Use Help menu to access guides and export files."""
         browser_frame.pack(fill='both', expand=True, padx=15, pady=10)
         
         # Search controls
-        search_frame = tk.Frame(browser_frame, bg=self.colors['bg'])
+        search_frame = tk.Frame(browser_frame, bg=self.colors['surface'])
         search_frame.pack(fill='x', padx=15, pady=15)
         
         ttk.Label(search_frame, text="Search Directory:").pack(side='left')
         
         self.search_entry = tk.Entry(search_frame,
-                                    bg=self.colors['surface'],
+                                    bg=self.colors['card'],
                                     fg=self.colors['fg'],
                                     insertbackground=self.colors['fg'],
                                     borderwidth=0,
                                     highlightthickness=1,
+                                    highlightbackground=self.colors['border'],
                                     highlightcolor=self.colors['accent'],
-                                    font=('Segoe UI', 10))
+                                    font=('Segoe UI', self.base_font_size + 1))
         self.search_entry.pack(side='left', fill='x', expand=True, padx=15)
         
         self.create_modern_button(search_frame, "📁 Browse", 
@@ -1443,16 +1511,16 @@ Use Help menu to access guides and export files."""
     
     def create_icons_display(self, parent):
         """Create the icons display area with previews."""
-        display_frame = tk.Frame(parent, bg=self.colors['bg'])
+        display_frame = tk.Frame(parent, bg=self.colors['surface'])
         display_frame.pack(fill='both', expand=True, padx=15, pady=15)
         
         # Create canvas for icon grid
         self.icons_canvas = tk.Canvas(display_frame, 
-                                     bg=self.colors['surface'],
+                                     bg=self.colors['card'],
                                      highlightthickness=0)
         icons_scrollbar = ttk.Scrollbar(display_frame, orient="vertical", 
                                        command=self.icons_canvas.yview)
-        self.icons_scrollable_frame = tk.Frame(self.icons_canvas, bg=self.colors['surface'])
+        self.icons_scrollable_frame = tk.Frame(self.icons_canvas, bg=self.colors['card'])
         
         self.icons_scrollable_frame.bind(
             "<Configure>",
@@ -1466,14 +1534,14 @@ Use Help menu to access guides and export files."""
         icons_scrollbar.pack(side="right", fill="y")
         
         # Icon selection info
-        info_frame = tk.Frame(parent, bg=self.colors['bg'])
+        info_frame = tk.Frame(parent, bg=self.colors['surface'])
         info_frame.pack(fill='x', padx=15, pady=10)
         
         self.selected_icon_label = tk.Label(info_frame,
                                            text="No icon selected",
-                                           bg=self.colors['bg'],
+                                           bg=self.colors['surface'],
                                            fg=self.colors['fg'],
-                                           font=('Segoe UI', 10))
+                                           font=('Segoe UI', self.base_font_size + 1))
         self.selected_icon_label.pack(side='left')
         
         self.create_modern_button(info_frame, "✅ Use Selected Icon", 
@@ -1512,7 +1580,7 @@ Use Help menu to access guides and export files."""
                     preview_photo = ImageTk.PhotoImage(preview_img)
                     
                     preview_label = tk.Label(self.preview_frame, image=preview_photo,
-                                           bg=self.colors['surface'])
+                                           bg=self.colors['card'])
                     preview_label.pack(expand=True)
                     
                     # Keep reference to prevent garbage collection
@@ -1521,8 +1589,8 @@ Use Help menu to access guides and export files."""
             except Exception as e:
                 # Show error in preview
                 error_label = tk.Label(self.preview_frame, text="Invalid\nImage",
-                                      bg=self.colors['surface'], fg=self.colors['error'],
-                                      font=('Segoe UI', 9))
+                                      bg=self.colors['card'], fg=self.colors['error'],
+                                      font=('Segoe UI', self.base_font_size))
                 error_label.pack(expand=True)
     
     def create_icon_from_image(self):
@@ -1799,9 +1867,9 @@ Use Help menu to access guides and export files."""
         if not icon_files:
             no_icons_label = tk.Label(self.icons_scrollable_frame,
                                      text="No icon files found in the selected directory.",
-                                     bg=self.colors['surface'],
+                                     bg=self.colors['card'],
                                      fg=self.colors['fg'],
-                                     font=('Segoe UI', 10))
+                                     font=('Segoe UI', self.base_font_size + 1))
             no_icons_label.pack(pady=20)
             return
         
@@ -1815,7 +1883,7 @@ Use Help menu to access guides and export files."""
             row = i // columns
             col = i % columns
             
-            icon_frame = tk.Frame(self.icons_scrollable_frame, bg=self.colors['surface'])
+            icon_frame = tk.Frame(self.icons_scrollable_frame, bg=self.colors['card'])
             icon_frame.grid(row=row, column=col, padx=10, pady=10, sticky='w')
             
             try:
@@ -1828,8 +1896,11 @@ Use Help menu to access guides and export files."""
                                         image=icon_photo,
                                         command=lambda p=str(icon_path): self.select_icon_preview(p),
                                         bg=self.colors['card'],
+                                        activebackground=self.colors['surface'],
                                         relief='flat',
-                                        borderwidth=2,
+                                        borderwidth=0,
+                                        highlightthickness=1,
+                                        highlightbackground=self.colors['border'],
                                         cursor='hand2')
                     icon_btn.pack()
                     
@@ -1839,18 +1910,18 @@ Use Help menu to access guides and export files."""
                     # Icon filename label
                     name_label = tk.Label(icon_frame,
                                          text=icon_path.name[:15] + "..." if len(icon_path.name) > 15 else icon_path.name,
-                                         bg=self.colors['surface'],
+                                         bg=self.colors['card'],
                                          fg=self.colors['fg'],
-                                         font=('Segoe UI', 8))
+                                         font=('Segoe UI', self.base_font_size - 1))
                     name_label.pack()
                     
             except Exception as e:
                 # Fallback for unreadable images
                 error_label = tk.Label(icon_frame,
                                       text="Invalid\nImage",
-                                      bg=self.colors['surface'],
+                                      bg=self.colors['card'],
                                       fg=self.colors['error'],
-                                      font=('Segoe UI', 8))
+                                      font=('Segoe UI', self.base_font_size - 1))
                 error_label.pack()
     
     def select_icon_preview(self, icon_path):
@@ -1912,48 +1983,50 @@ Use Help menu to access guides and export files."""
         dirs_frame.pack(fill='x', padx=15, pady=10)
         
         # Default EXE Output Directory
-        exe_dir_frame = tk.Frame(dirs_frame, bg=self.colors['bg'])
+        exe_dir_frame = tk.Frame(dirs_frame, bg=self.colors['surface'])
         exe_dir_frame.pack(fill='x', padx=15, pady=10)
         
         ttk.Label(exe_dir_frame, text="Default EXE Output Directory:").pack(anchor='w')
         
-        exe_entry_frame = tk.Frame(exe_dir_frame, bg=self.colors['bg'])
+        exe_entry_frame = tk.Frame(exe_dir_frame, bg=self.colors['surface'])
         exe_entry_frame.pack(fill='x', pady=5)
         
         self.default_exe_dir_var = tk.StringVar(value=self.default_settings['default_output_dir'])
         self.default_exe_dir_entry = tk.Entry(exe_entry_frame,
                                              textvariable=self.default_exe_dir_var,
-                                             bg=self.colors['surface'],
+                                             bg=self.colors['card'],
                                              fg=self.colors['fg'],
                                              insertbackground=self.colors['fg'],
                                              borderwidth=0,
                                              highlightthickness=1,
+                                             highlightbackground=self.colors['border'],
                                              highlightcolor=self.colors['accent'],
-                                             font=('Segoe UI', 10))
+                                             font=('Segoe UI', self.base_font_size + 1))
         self.default_exe_dir_entry.pack(side='left', fill='x', expand=True, padx=(0, 10))
         
         self.create_modern_button(exe_entry_frame, "📁 Browse", 
                                  lambda: self.browse_default_exe_dir(), 'right')
         
         # Default Icon Output Directory
-        icon_dir_frame = tk.Frame(dirs_frame, bg=self.colors['bg'])
+        icon_dir_frame = tk.Frame(dirs_frame, bg=self.colors['surface'])
         icon_dir_frame.pack(fill='x', padx=15, pady=10)
         
         ttk.Label(icon_dir_frame, text="Default Icon Output Directory:").pack(anchor='w')
         
-        icon_entry_frame = tk.Frame(icon_dir_frame, bg=self.colors['bg'])
+        icon_entry_frame = tk.Frame(icon_dir_frame, bg=self.colors['surface'])
         icon_entry_frame.pack(fill='x', pady=5)
         
         self.default_icon_dir_var = tk.StringVar(value=self.default_settings['default_icon_output_dir'])
         self.default_icon_dir_entry = tk.Entry(icon_entry_frame,
                                               textvariable=self.default_icon_dir_var,
-                                              bg=self.colors['surface'],
+                                              bg=self.colors['card'],
                                               fg=self.colors['fg'],
                                               insertbackground=self.colors['fg'],
                                               borderwidth=0,
                                               highlightthickness=1,
+                                              highlightbackground=self.colors['border'],
                                               highlightcolor=self.colors['accent'],
-                                              font=('Segoe UI', 10))
+                                              font=('Segoe UI', self.base_font_size + 1))
         self.default_icon_dir_entry.pack(side='left', fill='x', expand=True, padx=(0, 10))
         
         self.create_modern_button(icon_entry_frame, "📁 Browse", 
@@ -1965,7 +2038,7 @@ Use Help menu to access guides and export files."""
         appearance_frame.pack(fill='x', padx=15, pady=10)
         
         # Window Transparency
-        transparency_frame = tk.Frame(appearance_frame, bg=self.colors['bg'])
+        transparency_frame = tk.Frame(appearance_frame, bg=self.colors['surface'])
         transparency_frame.pack(fill='x', padx=15, pady=10)
         
         ttk.Label(transparency_frame, text="Window Transparency:").pack(side='left')
@@ -1975,9 +2048,10 @@ Use Help menu to access guides and export files."""
                                      from_=0.7, to=1.0, resolution=0.05,
                                      variable=self.transparency_var,
                                      orient=tk.HORIZONTAL,
-                                     bg=self.colors['bg'],
+                                     bg=self.colors['surface'],
                                      fg=self.colors['fg'],
                                      activebackground=self.colors['accent'],
+                                     troughcolor=self.colors['card'],
                                      highlightthickness=0,
                                      command=self.update_transparency)
         transparency_scale.pack(side='left', fill='x', expand=True, padx=10)
@@ -1985,13 +2059,13 @@ Use Help menu to access guides and export files."""
         # Transparency value display
         self.transparency_label = tk.Label(transparency_frame, 
                                           text=f"{self.transparency_var.get():.0%}",
-                                          bg=self.colors['bg'], fg=self.colors['fg'],
-                                          font=('Segoe UI', 9))
+                                          bg=self.colors['surface'], fg=self.colors['fg'],
+                                          font=('Segoe UI', self.base_font_size))
         self.transparency_label.pack(side='right', padx=10)
         
         # Theme Selection (if available)
         if hasattr(self, 'available_themes'):
-            theme_frame = tk.Frame(appearance_frame, bg=self.colors['bg'])
+            theme_frame = tk.Frame(appearance_frame, bg=self.colors['surface'])
             theme_frame.pack(fill='x', padx=15, pady=10)
             
             ttk.Label(theme_frame, text="Theme:").pack(side='left')
@@ -2008,7 +2082,7 @@ Use Help menu to access guides and export files."""
         behavior_frame = ttk.LabelFrame(parent, text="🔧 Behavior")
         behavior_frame.pack(fill='x', padx=15, pady=10)
         
-        behavior_container = tk.Frame(behavior_frame, bg=self.colors['bg'])
+        behavior_container = tk.Frame(behavior_frame, bg=self.colors['surface'])
         behavior_container.pack(fill='x', padx=15, pady=15)
         
         # Auto-select created icons
@@ -2044,7 +2118,7 @@ Use Help menu to access guides and export files."""
         controls_frame = ttk.LabelFrame(parent, text="💾 Settings Controls")
         controls_frame.pack(fill='x', padx=15, pady=10)
         
-        button_frame = tk.Frame(controls_frame, bg=self.colors['bg'])
+        button_frame = tk.Frame(controls_frame, bg=self.colors['surface'])
         button_frame.pack(fill='x', padx=15, pady=15)
         
         self.create_modern_button(button_frame, "💾 Save Settings", 
@@ -2055,14 +2129,14 @@ Use Help menu to access guides and export files."""
                                  self.apply_settings_changes, 'left', style='primary')
         
         # Settings status
-        status_frame = tk.Frame(controls_frame, bg=self.colors['bg'])
+        status_frame = tk.Frame(controls_frame, bg=self.colors['surface'])
         status_frame.pack(fill='x', padx=15, pady=(0, 15))
         
         self.settings_status_label = tk.Label(status_frame,
                                              text="💡 Settings are automatically applied when changed",
-                                             bg=self.colors['bg'],
+                                             bg=self.colors['surface'],
                                              fg=self.colors['fg'],
-                                             font=('Segoe UI', 9),
+                                             font=('Segoe UI', self.base_font_size),
                                              anchor='w')
         self.settings_status_label.pack(fill='x')
         
@@ -2074,18 +2148,19 @@ Use Help menu to access guides and export files."""
     
     def create_settings_summary(self, parent):
         """Create a summary of current settings."""
-        summary_container = tk.Frame(parent, bg=self.colors['bg'])
+        summary_container = tk.Frame(parent, bg=self.colors['surface'])
         summary_container.pack(fill='x', padx=15, pady=15)
         
         # Create summary text
         summary_text = tk.Text(summary_container,
                               height=8,
-                              bg=self.colors['surface'],
+                              bg=self.colors['card'],
                               fg=self.colors['fg'],
-                              font=('Consolas', 9),
+                              font=self.mono_font,
                               wrap=tk.WORD,
                               borderwidth=0,
                               highlightthickness=1,
+                              highlightbackground=self.colors['border'],
                               highlightcolor=self.colors['accent'],
                               state=tk.DISABLED)
         summary_text.pack(fill='x')
