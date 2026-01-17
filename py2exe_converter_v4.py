@@ -57,7 +57,7 @@ class ModernPy2ExeConverter:
             'show_icon_notifications': True,
             'window_transparency': 0.95,
             'theme': 'dark',
-            'font_size': 9,
+            'font_size': 10,
             'corner_radius': 10
         }
         
@@ -100,20 +100,20 @@ class ModernPy2ExeConverter:
             'show_icon_notifications': True,
             'window_transparency': 0.95,
             'theme': 'dark',
-            'font_size': 9,
+            'font_size': 10,
             'corner_radius': 10,
             'custom_theme': {
                 'name': 'Custom',
-                'bg': '#2b2b2b',
-                'surface': '#3c3c3c',
-                'card': '#404040',
-                'border': '#555555',
-                'fg': '#ffffff',
-                'accent': '#0078d4',
-                'accent_hover': '#106ebe',
-                'success': '#16a085',
-                'warning': '#f39c12',
-                'error': '#e74c3c'
+                'bg': '#111319',
+                'surface': '#171b24',
+                'card': '#1f2430',
+                'border': '#2b3242',
+                'fg': '#f5f7ff',
+                'accent': '#4f8cff',
+                'accent_hover': '#6aa3ff',
+                'success': '#22c55e',
+                'warning': '#f59e0b',
+                'error': '#ef4444'
             }
         }
         
@@ -121,81 +121,81 @@ class ModernPy2ExeConverter:
         self.available_themes = {
             'dark': {
                 'name': 'Dark',
-                'bg': '#1e1e1e',
-                'surface': '#252526',
-                'card': '#2d2d30',
-                'border': '#3f3f46',
-                'fg': '#ffffff',
-                'accent': '#0078d4',
-                'accent_hover': '#106ebe',
-                'success': '#107c10',
-                'warning': '#ff8c00',
-                'error': '#d13438'
+                'bg': '#0f1115',
+                'surface': '#161a22',
+                'card': '#1f2430',
+                'border': '#2b3242',
+                'fg': '#f5f7ff',
+                'accent': '#4f8cff',
+                'accent_hover': '#6aa3ff',
+                'success': '#22c55e',
+                'warning': '#f59e0b',
+                'error': '#ef4444'
             },
             'light': {
                 'name': 'Light',
-                'bg': '#f0f0f0',
+                'bg': '#f6f7fb',
                 'surface': '#ffffff',
-                'card': '#f8f8f8',
-                'border': '#d0d0d0',
-                'fg': '#333333',
-                'accent': '#0078d4',
-                'accent_hover': '#106ebe',
-                'success': '#16a085',
-                'warning': '#f39c12',
-                'error': '#e74c3c'
+                'card': '#f0f3f9',
+                'border': '#d8deea',
+                'fg': '#1f2937',
+                'accent': '#3b82f6',
+                'accent_hover': '#2563eb',
+                'success': '#16a34a',
+                'warning': '#f59e0b',
+                'error': '#ef4444'
             },
             'blue': {
                 'name': 'Ocean Blue',
-                'bg': '#1e3a5f',
-                'surface': '#2d4f73',
-                'card': '#3a5f87',
-                'border': '#4a6f97',
-                'fg': '#ffffff',
-                'accent': '#4fc3f7',
-                'accent_hover': '#29b6f6',
-                'success': '#66bb6a',
-                'warning': '#ffb74d',
-                'error': '#ef5350'
+                'bg': '#0f172a',
+                'surface': '#152238',
+                'card': '#1b2a44',
+                'border': '#2a3a59',
+                'fg': '#f8fafc',
+                'accent': '#38bdf8',
+                'accent_hover': '#0ea5e9',
+                'success': '#22c55e',
+                'warning': '#fbbf24',
+                'error': '#f87171'
             },
             'green': {
                 'name': 'Forest Green',
-                'bg': '#1b4332',
-                'surface': '#2d5016',
-                'card': '#40531b',
-                'border': '#52681f',
-                'fg': '#ffffff',
-                'accent': '#81c784',
-                'accent_hover': '#66bb6a',
-                'success': '#a5d6a7',
-                'warning': '#ffcc02',
-                'error': '#ff5722'
+                'bg': '#0f1f1a',
+                'surface': '#162a22',
+                'card': '#1c3329',
+                'border': '#2a4a3a',
+                'fg': '#ecfdf3',
+                'accent': '#34d399',
+                'accent_hover': '#10b981',
+                'success': '#22c55e',
+                'warning': '#f59e0b',
+                'error': '#f87171'
             },
             'purple': {
                 'name': 'Royal Purple',
-                'bg': '#3e2723',
-                'surface': '#4e342e',
-                'card': '#5d4037',
-                'border': '#6d4c41',
-                'fg': '#ffffff',
-                'accent': '#ba68c8',
-                'accent_hover': '#ab47bc',
-                'success': '#81c784',
-                'warning': '#ffb74d',
-                'error': '#e57373'
+                'bg': '#1c1526',
+                'surface': '#241b33',
+                'card': '#2e2240',
+                'border': '#3d2d57',
+                'fg': '#f5f3ff',
+                'accent': '#c084fc',
+                'accent_hover': '#a855f7',
+                'success': '#22c55e',
+                'warning': '#f59e0b',
+                'error': '#f87171'
             },
             'custom': {
                 'name': 'Custom',
-                'bg': '#2b2b2b',
-                'surface': '#3c3c3c',
-                'card': '#404040',
-                'border': '#555555',
-                'fg': '#ffffff',
-                'accent': '#0078d4',
-                'accent_hover': '#106ebe',
-                'success': '#16a085',
-                'warning': '#f39c12',
-                'error': '#e74c3c'
+                'bg': '#111319',
+                'surface': '#171b24',
+                'card': '#1f2430',
+                'border': '#2b3242',
+                'fg': '#f5f7ff',
+                'accent': '#4f8cff',
+                'accent_hover': '#6aa3ff',
+                'success': '#22c55e',
+                'warning': '#f59e0b',
+                'error': '#ef4444'
             }
         }
         
@@ -279,7 +279,9 @@ class ModernPy2ExeConverter:
                        background=self.colors['bg'])
         style.configure('TNotebook.Tab', 
                        background=self.colors['card'],
-                       foreground=self.colors['fg'])
+                       foreground=self.colors['fg'],
+                       font=('Segoe UI Semibold', 10),
+                       padding=[24, 12])
         style.map('TNotebook.Tab',
                  background=[('selected', self.colors['accent']),
                             ('active', self.colors['accent_hover'])],
@@ -301,6 +303,10 @@ class ModernPy2ExeConverter:
         """Configure modern ttk styles with enhanced appearance."""
         style = ttk.Style()
         style.theme_use('clam')
+
+        base_font = ('Segoe UI', 10)
+        title_font = ('Segoe UI Semibold', 10)
+        tab_font = ('Segoe UI Semibold', 10)
         
         # Configure enhanced styles
         style.configure('TNotebook', 
@@ -309,7 +315,8 @@ class ModernPy2ExeConverter:
         style.configure('TNotebook.Tab', 
                        background=self.colors['card'],
                        foreground=self.colors['fg'],
-                       padding=[20, 12],
+                       padding=[24, 12],
+                       font=tab_font,
                        focuscolor='none',
                        borderwidth=0)
         style.map('TNotebook.Tab',
@@ -323,11 +330,32 @@ class ModernPy2ExeConverter:
                        background=self.colors['bg'],
                        foreground=self.colors['fg'],
                        borderwidth=1,
-                       relief='solid')
+                       relief='solid',
+                       padding=(12, 8))
+        style.configure('TLabelFrame.Label',
+                       background=self.colors['bg'],
+                       foreground=self.colors['fg'],
+                       font=title_font)
         style.configure('TLabel', 
                        background=self.colors['bg'],
                        foreground=self.colors['fg'],
-                       font=('Segoe UI', 9))
+                       font=base_font)
+
+        style.configure('TCombobox',
+                       fieldbackground=self.colors['surface'],
+                       background=self.colors['card'],
+                       foreground=self.colors['fg'],
+                       arrowcolor=self.colors['fg'],
+                       bordercolor=self.colors['border'])
+        style.map('TCombobox',
+                 fieldbackground=[('readonly', self.colors['surface'])],
+                 background=[('active', self.colors['card'])])
+
+        style.configure('TScrollbar',
+                       background=self.colors['card'],
+                       troughcolor=self.colors['surface'],
+                       bordercolor=self.colors['border'],
+                       arrowcolor=self.colors['fg'])
         
         # Enhanced progressbar
         style.configure('TProgressbar',
@@ -691,7 +719,9 @@ Use Help menu to access guides and export files."""
                                        borderwidth=0,
                                        highlightthickness=1,
                                        highlightcolor=self.colors['accent'],
-                                       font=('Segoe UI', 9))
+                                       highlightbackground=self.colors['border'],
+                                       relief='flat',
+                                       font=('Segoe UI', 10))
         self.files_listbox.pack(side='left', fill='both', expand=True)
         
         files_scrollbar = ttk.Scrollbar(listbox_frame, orient='vertical')
@@ -726,6 +756,8 @@ Use Help menu to access guides and export files."""
                                     borderwidth=0,
                                     highlightthickness=1,
                                     highlightcolor=self.colors['accent'],
+                                    highlightbackground=self.colors['border'],
+                                    relief='flat',
                                     font=('Segoe UI', 10))
         self.output_entry.pack(side='left', fill='x', expand=True, padx=(0, 15))
         
@@ -768,6 +800,8 @@ Use Help menu to access guides and export files."""
                                   borderwidth=0,
                                   highlightthickness=1,
                                   highlightcolor=self.colors['accent'],
+                                  highlightbackground=self.colors['border'],
+                                  relief='flat',
                                   font=('Segoe UI', 10))
         self.icon_entry.pack(side='left', fill='x', expand=True, padx=15)
         
@@ -811,7 +845,9 @@ Use Help menu to access guides and export files."""
                                         borderwidth=0,
                                         highlightthickness=1,
                                         highlightcolor=self.colors['accent'],
-                                        font=('Segoe UI', 9))
+                                        highlightbackground=self.colors['border'],
+                                        relief='flat',
+                                        font=('Segoe UI', 10))
         self.hidden_listbox.pack(side='left', fill='both', expand=True)
         
         hidden_scrollbar = ttk.Scrollbar(hidden_container, orient='vertical')
@@ -877,6 +913,8 @@ Use Help menu to access guides and export files."""
                                   borderwidth=0,
                                   highlightthickness=1,
                                   highlightcolor=self.colors['accent'],
+                                  highlightbackground=self.colors['border'],
+                                  relief='flat',
                                   wrap=tk.WORD,
                                   state=tk.DISABLED,
                                   font=('Consolas', 9))
@@ -907,16 +945,41 @@ Use Help menu to access guides and export files."""
     def create_modern_button(self, parent, text, command, side, style='default', size='normal'):
         """Create a modern styled button with enhanced appearance."""
         styles = {
-            'default': {'bg': self.colors['card'], 'hover': self.colors['border']},
-            'primary': {'bg': self.colors['accent'], 'hover': self.colors['accent_hover']},
-            'success': {'bg': self.colors['success'], 'hover': '#0e6e0e'},
-            'warning': {'bg': self.colors['warning'], 'hover': '#e67c00'},
-            'danger': {'bg': self.colors['error'], 'hover': '#b12328'}
+            'default': {
+                'bg': self.colors['card'],
+                'hover': self.colors['surface'],
+                'fg': self.colors['fg'],
+                'border': self.colors['border']
+            },
+            'primary': {
+                'bg': self.colors['accent'],
+                'hover': self.colors['accent_hover'],
+                'fg': 'white',
+                'border': self.colors['accent']
+            },
+            'success': {
+                'bg': self.colors['success'],
+                'hover': '#1faa52',
+                'fg': 'white',
+                'border': self.colors['success']
+            },
+            'warning': {
+                'bg': self.colors['warning'],
+                'hover': '#d97706',
+                'fg': 'white',
+                'border': self.colors['warning']
+            },
+            'danger': {
+                'bg': self.colors['error'],
+                'hover': '#dc2626',
+                'fg': 'white',
+                'border': self.colors['error']
+            }
         }
         
         sizes = {
-            'normal': {'font': ('Segoe UI', 9), 'pady': 8, 'padx': 20},
-            'large': {'font': ('Segoe UI', 11, 'bold'), 'pady': 12, 'padx': 30}
+            'normal': {'font': ('Segoe UI Semibold', 10), 'pady': 8, 'padx': 22},
+            'large': {'font': ('Segoe UI Semibold', 12), 'pady': 12, 'padx': 32}
         }
         
         style_config = styles.get(style, styles['default'])
@@ -926,9 +989,13 @@ Use Help menu to access guides and export files."""
                        text=text,
                        command=command,
                        bg=style_config['bg'],
-                       fg='white',
+                       fg=style_config['fg'],
+                       activebackground=style_config['hover'],
+                       activeforeground=style_config['fg'],
                        font=size_config['font'],
                        borderwidth=0,
+                       highlightthickness=1,
+                       highlightbackground=style_config['border'],
                        pady=size_config['pady'],
                        padx=size_config['padx'],
                        cursor='hand2',
@@ -937,9 +1004,9 @@ Use Help menu to access guides and export files."""
         
         # Enhanced hover effects
         def on_enter(e):
-            btn.configure(bg=style_config['hover'])
+            btn.configure(bg=style_config['hover'], highlightbackground=style_config['hover'])
         def on_leave(e):
-            btn.configure(bg=style_config['bg'])
+            btn.configure(bg=style_config['bg'], highlightbackground=style_config['border'])
             
         btn.bind("<Enter>", on_enter)
         btn.bind("<Leave>", on_leave)
@@ -956,7 +1023,7 @@ Use Help menu to access guides and export files."""
                            selectcolor=self.colors['surface'],
                            activebackground=self.colors['bg'],
                            activeforeground=self.colors['fg'],
-                           font=('Segoe UI', 9),
+                           font=('Segoe UI', 10),
                            borderwidth=0,
                            highlightthickness=0)
         return cb
@@ -1028,6 +1095,10 @@ Use Help menu to access guides and export files."""
                                bg=self.colors['surface'],
                                fg=self.colors['fg'],
                                insertbackground=self.colors['fg'],
+                               highlightthickness=1,
+                               highlightcolor=self.colors['accent'],
+                               highlightbackground=self.colors['border'],
+                               relief='flat',
                                font=('Segoe UI', 10))
         entry_module.pack(pady=5)
         
@@ -1347,6 +1418,8 @@ Use Help menu to access guides and export files."""
                                           borderwidth=0,
                                           highlightthickness=1,
                                           highlightcolor=self.colors['accent'],
+                                          highlightbackground=self.colors['border'],
+                                          relief='flat',
                                           font=('Segoe UI', 10))
         self.source_image_entry.pack(side='left', fill='x', expand=True, padx=15)
         
@@ -1429,6 +1502,8 @@ Use Help menu to access guides and export files."""
                                     borderwidth=0,
                                     highlightthickness=1,
                                     highlightcolor=self.colors['accent'],
+                                    highlightbackground=self.colors['border'],
+                                    relief='flat',
                                     font=('Segoe UI', 10))
         self.search_entry.pack(side='left', fill='x', expand=True, padx=15)
         
@@ -1929,6 +2004,8 @@ Use Help menu to access guides and export files."""
                                              borderwidth=0,
                                              highlightthickness=1,
                                              highlightcolor=self.colors['accent'],
+                                             highlightbackground=self.colors['border'],
+                                             relief='flat',
                                              font=('Segoe UI', 10))
         self.default_exe_dir_entry.pack(side='left', fill='x', expand=True, padx=(0, 10))
         
@@ -1953,6 +2030,8 @@ Use Help menu to access guides and export files."""
                                               borderwidth=0,
                                               highlightthickness=1,
                                               highlightcolor=self.colors['accent'],
+                                              highlightbackground=self.colors['border'],
+                                              relief='flat',
                                               font=('Segoe UI', 10))
         self.default_icon_dir_entry.pack(side='left', fill='x', expand=True, padx=(0, 10))
         
@@ -2087,6 +2166,8 @@ Use Help menu to access guides and export files."""
                               borderwidth=0,
                               highlightthickness=1,
                               highlightcolor=self.colors['accent'],
+                              highlightbackground=self.colors['border'],
+                              relief='flat',
                               state=tk.DISABLED)
         summary_text.pack(fill='x')
         
