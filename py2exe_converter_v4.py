@@ -57,8 +57,8 @@ class ModernPy2ExeConverter:
             'show_icon_notifications': True,
             'window_transparency': 0.95,
             'theme': 'dark',
-            'font_size': 9,
-            'corner_radius': 10
+            'font_size': 10,
+            'corner_radius': 12
         }
         
         # Load user settings
@@ -100,20 +100,21 @@ class ModernPy2ExeConverter:
             'show_icon_notifications': True,
             'window_transparency': 0.95,
             'theme': 'dark',
-            'font_size': 9,
-            'corner_radius': 10,
+            'font_size': 10,
+            'corner_radius': 12,
             'custom_theme': {
                 'name': 'Custom',
-                'bg': '#2b2b2b',
-                'surface': '#3c3c3c',
-                'card': '#404040',
-                'border': '#555555',
-                'fg': '#ffffff',
-                'accent': '#0078d4',
-                'accent_hover': '#106ebe',
-                'success': '#16a085',
-                'warning': '#f39c12',
-                'error': '#e74c3c'
+                'bg': '#0f1115',
+                'surface': '#171a21',
+                'card': '#1f232d',
+                'border': '#2a313d',
+                'fg': '#e6eaf2',
+                'muted': '#9aa4b2',
+                'accent': '#4f8cff',
+                'accent_hover': '#6aa2ff',
+                'success': '#22c55e',
+                'warning': '#f59e0b',
+                'error': '#ef4444'
             }
         }
         
@@ -121,81 +122,87 @@ class ModernPy2ExeConverter:
         self.available_themes = {
             'dark': {
                 'name': 'Dark',
-                'bg': '#1e1e1e',
-                'surface': '#252526',
-                'card': '#2d2d30',
-                'border': '#3f3f46',
-                'fg': '#ffffff',
-                'accent': '#0078d4',
-                'accent_hover': '#106ebe',
-                'success': '#107c10',
-                'warning': '#ff8c00',
-                'error': '#d13438'
+                'bg': '#0f1115',
+                'surface': '#171a21',
+                'card': '#1f232d',
+                'border': '#2a313d',
+                'fg': '#e6eaf2',
+                'muted': '#9aa4b2',
+                'accent': '#4f8cff',
+                'accent_hover': '#6aa2ff',
+                'success': '#22c55e',
+                'warning': '#f59e0b',
+                'error': '#ef4444'
             },
             'light': {
                 'name': 'Light',
-                'bg': '#f0f0f0',
+                'bg': '#f6f7fb',
                 'surface': '#ffffff',
-                'card': '#f8f8f8',
-                'border': '#d0d0d0',
-                'fg': '#333333',
-                'accent': '#0078d4',
-                'accent_hover': '#106ebe',
-                'success': '#16a085',
-                'warning': '#f39c12',
-                'error': '#e74c3c'
+                'card': '#f0f3f8',
+                'border': '#d6dde8',
+                'fg': '#1f2937',
+                'muted': '#6b7280',
+                'accent': '#2563eb',
+                'accent_hover': '#1d4ed8',
+                'success': '#16a34a',
+                'warning': '#d97706',
+                'error': '#dc2626'
             },
             'blue': {
                 'name': 'Ocean Blue',
-                'bg': '#1e3a5f',
-                'surface': '#2d4f73',
-                'card': '#3a5f87',
-                'border': '#4a6f97',
-                'fg': '#ffffff',
-                'accent': '#4fc3f7',
-                'accent_hover': '#29b6f6',
-                'success': '#66bb6a',
-                'warning': '#ffb74d',
-                'error': '#ef5350'
+                'bg': '#0f172a',
+                'surface': '#111c36',
+                'card': '#162447',
+                'border': '#22315a',
+                'fg': '#e2e8f0',
+                'muted': '#94a3b8',
+                'accent': '#38bdf8',
+                'accent_hover': '#0ea5e9',
+                'success': '#22c55e',
+                'warning': '#f59e0b',
+                'error': '#ef4444'
             },
             'green': {
                 'name': 'Forest Green',
-                'bg': '#1b4332',
-                'surface': '#2d5016',
-                'card': '#40531b',
-                'border': '#52681f',
-                'fg': '#ffffff',
-                'accent': '#81c784',
-                'accent_hover': '#66bb6a',
-                'success': '#a5d6a7',
-                'warning': '#ffcc02',
-                'error': '#ff5722'
+                'bg': '#0f1f18',
+                'surface': '#132a22',
+                'card': '#17332a',
+                'border': '#244336',
+                'fg': '#e2f5ea',
+                'muted': '#9bb8a8',
+                'accent': '#34d399',
+                'accent_hover': '#10b981',
+                'success': '#22c55e',
+                'warning': '#f59e0b',
+                'error': '#ef4444'
             },
             'purple': {
                 'name': 'Royal Purple',
-                'bg': '#3e2723',
-                'surface': '#4e342e',
-                'card': '#5d4037',
-                'border': '#6d4c41',
-                'fg': '#ffffff',
-                'accent': '#ba68c8',
-                'accent_hover': '#ab47bc',
-                'success': '#81c784',
-                'warning': '#ffb74d',
-                'error': '#e57373'
+                'bg': '#140f1f',
+                'surface': '#1b1428',
+                'card': '#241a33',
+                'border': '#322244',
+                'fg': '#f1e9ff',
+                'muted': '#b3a6c8',
+                'accent': '#a855f7',
+                'accent_hover': '#9333ea',
+                'success': '#22c55e',
+                'warning': '#f59e0b',
+                'error': '#ef4444'
             },
             'custom': {
                 'name': 'Custom',
-                'bg': '#2b2b2b',
-                'surface': '#3c3c3c',
-                'card': '#404040',
-                'border': '#555555',
-                'fg': '#ffffff',
-                'accent': '#0078d4',
-                'accent_hover': '#106ebe',
-                'success': '#16a085',
-                'warning': '#f39c12',
-                'error': '#e74c3c'
+                'bg': '#0f1115',
+                'surface': '#171a21',
+                'card': '#1f232d',
+                'border': '#2a313d',
+                'fg': '#e6eaf2',
+                'muted': '#9aa4b2',
+                'accent': '#4f8cff',
+                'accent_hover': '#6aa2ff',
+                'success': '#22c55e',
+                'warning': '#f59e0b',
+                'error': '#ef4444'
             }
         }
         
@@ -301,6 +308,10 @@ class ModernPy2ExeConverter:
         """Configure modern ttk styles with enhanced appearance."""
         style = ttk.Style()
         style.theme_use('clam')
+
+        base_font_size = self.default_settings.get('font_size', 10)
+        self.base_font = ('Segoe UI', base_font_size)
+        self.heading_font = ('Segoe UI', base_font_size + 1, 'bold')
         
         # Configure enhanced styles
         style.configure('TNotebook', 
@@ -309,7 +320,8 @@ class ModernPy2ExeConverter:
         style.configure('TNotebook.Tab', 
                        background=self.colors['card'],
                        foreground=self.colors['fg'],
-                       padding=[20, 12],
+                       padding=[22, 12],
+                       font=self.base_font,
                        focuscolor='none',
                        borderwidth=0)
         style.map('TNotebook.Tab',
@@ -324,10 +336,20 @@ class ModernPy2ExeConverter:
                        foreground=self.colors['fg'],
                        borderwidth=1,
                        relief='solid')
+        style.configure('TLabelFrame.Label',
+                       background=self.colors['bg'],
+                       foreground=self.colors['fg'],
+                       font=self.heading_font)
         style.configure('TLabel', 
                        background=self.colors['bg'],
                        foreground=self.colors['fg'],
-                       font=('Segoe UI', 9))
+                       font=self.base_font)
+
+        style.configure('TScrollbar',
+                       background=self.colors['card'],
+                       troughcolor=self.colors['bg'],
+                       borderwidth=0,
+                       arrowsize=12)
         
         # Enhanced progressbar
         style.configure('TProgressbar',
@@ -794,7 +816,7 @@ Use Help menu to access guides and export files."""
         helper_text = tk.Label(hidden_frame,
                               text="💡 PyInstaller automatically detects most dependencies. Only add modules here if you encounter import errors.",
                               bg=self.colors['bg'],
-                              fg=self.colors['border'],
+                              fg=self.colors.get('muted', self.colors['border']),
                               font=('Segoe UI', 8),
                               wraplength=600)
         helper_text.pack(anchor='w', pady=(0, 5))
@@ -906,17 +928,18 @@ Use Help menu to access guides and export files."""
     
     def create_modern_button(self, parent, text, command, side, style='default', size='normal'):
         """Create a modern styled button with enhanced appearance."""
+        base_font_size = self.default_settings.get('font_size', 10)
         styles = {
-            'default': {'bg': self.colors['card'], 'hover': self.colors['border']},
-            'primary': {'bg': self.colors['accent'], 'hover': self.colors['accent_hover']},
-            'success': {'bg': self.colors['success'], 'hover': '#0e6e0e'},
-            'warning': {'bg': self.colors['warning'], 'hover': '#e67c00'},
-            'danger': {'bg': self.colors['error'], 'hover': '#b12328'}
+            'default': {'bg': self.colors['card'], 'hover': self.colors['border'], 'fg': self.colors['fg']},
+            'primary': {'bg': self.colors['accent'], 'hover': self.colors['accent_hover'], 'fg': 'white'},
+            'success': {'bg': self.colors['success'], 'hover': '#16a34a', 'fg': 'white'},
+            'warning': {'bg': self.colors['warning'], 'hover': '#d97706', 'fg': 'white'},
+            'danger': {'bg': self.colors['error'], 'hover': '#dc2626', 'fg': 'white'}
         }
         
         sizes = {
-            'normal': {'font': ('Segoe UI', 9), 'pady': 8, 'padx': 20},
-            'large': {'font': ('Segoe UI', 11, 'bold'), 'pady': 12, 'padx': 30}
+            'normal': {'font': ('Segoe UI', base_font_size), 'pady': 8, 'padx': 20},
+            'large': {'font': ('Segoe UI', base_font_size + 2, 'bold'), 'pady': 12, 'padx': 30}
         }
         
         style_config = styles.get(style, styles['default'])
@@ -926,12 +949,15 @@ Use Help menu to access guides and export files."""
                        text=text,
                        command=command,
                        bg=style_config['bg'],
-                       fg='white',
+                       fg=style_config['fg'],
                        font=size_config['font'],
                        borderwidth=0,
                        pady=size_config['pady'],
                        padx=size_config['padx'],
                        cursor='hand2',
+                       activebackground=style_config['hover'],
+                       activeforeground=style_config['fg'],
+                       highlightthickness=0,
                        relief='flat')
         btn.pack(side=side, padx=10)
         
@@ -956,7 +982,7 @@ Use Help menu to access guides and export files."""
                            selectcolor=self.colors['surface'],
                            activebackground=self.colors['bg'],
                            activeforeground=self.colors['fg'],
-                           font=('Segoe UI', 9),
+                           font=self.base_font,
                            borderwidth=0,
                            highlightthickness=0)
         return cb
