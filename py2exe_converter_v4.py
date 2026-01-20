@@ -12,6 +12,7 @@ from datetime import datetime
 import math
 import platform
 import itertools
+import queue
 
 class Tooltip:
     """Enhanced tooltip for tkinter widgets."""
@@ -78,6 +79,13 @@ class ModernPy2ExeConverter:
         self.icon_cache = {}
         self.last_created_icon = None  # Track last created icon for auto-selection
 
+        # Initialize thread-safe log queue
+        self.log_queue = queue.Queue()
+        self._process_log_queue()
+
+        # Cache for mousewheel scroll targets to improve performance
+        self._scroll_target_cache = {}
+
         # Default directories (Desktop)
         desktop_path = os.path.join(os.path.expanduser("~"), "Desktop")
         self.default_settings = {
@@ -126,6 +134,40 @@ class ModernPy2ExeConverter:
     def create_tooltip(self, widget, text):
         """Helper to create a tooltip for a widget."""
         return Tooltip(widget, text)
+
+    def _process_log_queue(self):
+        """Process messages in the log queue to avoid UI thread blocking and ensure thread safety."""
+        try:
+            # Process multiple messages at once to improve performance
+            for _ in range(25):
+                try:
+                    message, level = self.log_queue.get_nowait()
+                    self._do_write_log(message, level)
+                except queue.Empty:
+                    break
+        finally:
+            # Schedule next check
+            self.root.after(100, self._process_log_queue)
+
+    def _do_write_log(self, message, level):
+        """Actually write to the log widget. Should only be called from the main UI thread."""
+        if not hasattr(self, 'output_text'):
+            return
+
+        timestamp = datetime.now().strftime("%H:%M:%S")
+
+        # Enable text widget temporarily
+        self.output_text.config(state=tk.NORMAL)
+
+        # Insert timestamp and message
+        self.output_text.insert(tk.END, f"[{timestamp}] ", "timestamp")
+        self.output_text.insert(tk.END, f"{message}\n", level)
+
+        # Auto-scroll to bottom
+        self.output_text.see(tk.END)
+
+        # Disable text widget
+        self.output_text.config(state=tk.DISABLED)
 
     def setup_theme_system(self):
         """Initialize the theme and color system."""
@@ -306,6 +348,9 @@ class ModernPy2ExeConverter:
             # Update all notebook tab styles
             if hasattr(self, 'notebook'):
                 self.update_notebook_styles()
+
+            # Update log tags for new theme colors
+            self._setup_log_tags()
 
             # Log theme change
             if hasattr(self, 'log_output'):
@@ -1038,6 +1083,9 @@ Use Help menu to access guides and export files."""
                                  self.copy_log_to_clipboard, 'left')
         self.create_tooltip(btn_copy_log, "Copy all log text to clipboard")
 
+        # Initialize log tags
+        self._setup_log_tags()
+
         # Initial welcome message
         self.log_output("🎉 Welcome to Modern Python to EXE Converter v4.0", "info")
         self.log_output(f"Session started at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", "info")
@@ -1046,23 +1094,43 @@ Use Help menu to access guides and export files."""
     # Continue with rest of methods in next part...
 
     def _on_mousewheel(self, event):
-        """Handle mouse wheel scrolling for canvases safely."""
+        """Handle mouse wheel scrolling with cached target lookup for better performance."""
         delta = event.delta
         if platform.system() == 'Windows':
             scroll = -1 * (delta // 120)
         else:
             scroll = -1 * delta
 
-        # Safely find the parent canvas if the event widget isn't the canvas itself
         widget = event.widget
-        while widget:
-            if hasattr(widget, 'yview_scroll'):
+
+        # Check cache first to avoid repeated tree traversal
+        if widget in self._scroll_target_cache:
+            target = self._scroll_target_cache[widget]
+            if target:
                 try:
-                    widget.yview_scroll(scroll, "units")
+                    target.yview_scroll(scroll, "units")
+                    return
+                except (tk.TclError, AttributeError):
+                    # Cache entry might be stale if widget was destroyed
+                    del self._scroll_target_cache[widget]
+            else:
+                # We already know this widget has no scrollable parent
+                return
+
+        # Safely find and cache the parent scrollable widget
+        curr = widget
+        while curr:
+            if hasattr(curr, 'yview_scroll'):
+                self._scroll_target_cache[widget] = curr
+                try:
+                    curr.yview_scroll(scroll, "units")
                     return
                 except tk.TclError:
                     pass
-            widget = widget.master
+            curr = curr.master
+
+        # Cache that no scrollable parent was found
+        self._scroll_target_cache[widget] = None
 
     def _add_placeholder(self, entry, placeholder):
         """Add placeholder text to an entry widget."""
@@ -1287,46 +1355,24 @@ Use Help menu to access guides and export files."""
 
     # Logging and validation methods
     def log_output(self, message, level="info"):
-        """Log a message to the output text widget with color coding."""
+        """Log a message via a thread-safe queue. This is more efficient and prevents UI hangs."""
+        if hasattr(self, 'log_queue'):
+            self.log_queue.put((message, level))
+        else:
+            # Fallback for early logging if queue is not yet initialized
+            timestamp = datetime.now().strftime("%H:%M:%S")
+            print(f"[{timestamp}] [{level.upper()}] {message}")
+
+    def _setup_log_tags(self):
+        """Configure color tags for the log output. Should be called after output_text creation or theme change."""
         if not hasattr(self, 'output_text'):
-            return  # GUI not ready yet
+            return
 
-        timestamp = datetime.now().strftime("%H:%M:%S")
-
-        # Color coding based on level
-        colors = {
-            "info": self.colors['fg'],
-            "success": self.colors['success'],
-            "warning": self.colors['warning'],
-            "error": self.colors['error']
-        }
-
-        color = colors.get(level, self.colors['fg'])
-
-        # Enable text widget temporarily
-        self.output_text.config(state=tk.NORMAL)
-
-        # Insert timestamp
-        self.output_text.insert(tk.END, f"[{timestamp}] ", "timestamp")
-
-        # Insert message with appropriate color
-        self.output_text.insert(tk.END, f"{message}\n", level)
-
-        # Configure tags for colors
         self.output_text.tag_config("timestamp", foreground=self.colors['border'])
         self.output_text.tag_config("info", foreground=self.colors['fg'])
         self.output_text.tag_config("success", foreground=self.colors['success'])
         self.output_text.tag_config("warning", foreground=self.colors['warning'])
         self.output_text.tag_config("error", foreground=self.colors['error'])
-
-        # Auto-scroll to bottom
-        self.output_text.see(tk.END)
-
-        # Disable text widget
-        self.output_text.config(state=tk.DISABLED)
-
-        # Update GUI
-        self.root.update_idletasks()
 
     def clear_log(self):
         """Clear the output log."""
@@ -1833,12 +1879,16 @@ Use Help menu to access guides and export files."""
                         self.log_output(f"Optimizing: Pre-resizing source image to {max_size}x{max_size}...", "info")
                     working_img = img.resize((max_size, max_size), Image.Resampling.LANCZOS)
 
+                # Performance Optimization: Cache shaped icons to avoid redundant processing
+                shaped_icons_cache = {}
+
                 # Create each size with the selected shape
                 for size_str in selected_sizes:
                     size = int(size_str.split('x')[0])
 
-                    # Create shaped icon
+                    # Create shaped icon and store in cache
                     shaped_icon = self.create_shaped_icon(working_img, shape_key, size)
+                    shaped_icons_cache[size] = shaped_icon
 
                     # Save as ICO
                     ico_path = os.path.join(output_dir, f"{base_name}_{shape_key}_{size}x{size}.ico")
@@ -1850,8 +1900,9 @@ Use Help menu to access guides and export files."""
 
                 # Create multi-size ICO with shape
                 multi_ico_path = os.path.join(output_dir, f"{base_name}_{shape_key}_multi.ico")
-                # sizes is already calculated above
-                shaped_icons = [self.create_shaped_icon(working_img, shape_key, s) for s in sizes]
+
+                # Use cached icons for multi-size ICO to avoid redundant regeneration
+                shaped_icons = [shaped_icons_cache.get(s) or self.create_shaped_icon(working_img, shape_key, s) for s in sizes]
 
                 if shaped_icons:
                     shaped_icons[0].save(multi_ico_path, format='ICO',
@@ -2044,7 +2095,7 @@ Use Help menu to access guides and export files."""
             self.search_entry.insert(0, directory)
 
     def search_icons(self):
-        """Search for icon files in the specified directory."""
+        """Search for icon files in the specified directory using an efficient single-pass traversal."""
         search_dir = self.search_entry.get().strip()
         # Handle placeholder
         if search_dir == "Directory to search for icons...":
@@ -2061,29 +2112,40 @@ Use Help menu to access guides and export files."""
         # Hide empty state label
         self.empty_icons_label.place_forget()
 
-        # Search for icon files
-        generators = (Path(search_dir).rglob(ext) for ext in ['*.ico', '*.png', '*.jpg', '*.jpeg', '*.bmp'])
-        all_icons = itertools.chain.from_iterable(generators)
+        # Optimization: Use single-pass os.walk and limit results for better performance
+        # This is significantly faster than multiple rglob calls on large directory trees
+        icon_files = []
+        extensions = ('.ico', '.png', '.jpg', '.jpeg', '.bmp')
+        limit = 100  # Reasonable limit to keep the UI responsive
 
-        count = 0
-        icon_files_head = []
-        for icon in all_icons:
-            if count < 20:
-                icon_files_head.append(icon)
-            count += 1
+        found_count = 0
+        for root, dirs, files in os.walk(search_dir):
+            for file in files:
+                if file.lower().endswith(extensions):
+                    icon_files.append(Path(root) / file)
+                    found_count += 1
+                    if found_count >= limit:
+                        break
+            if found_count >= limit:
+                break
 
-        if count == 0:
+        if found_count == 0:
             self.empty_icons_label.config(text="❌ No icons found in this directory.")
             self.empty_icons_label.place(relx=0.5, rely=0.5, anchor='center')
             return
 
         # Display found icons
         if hasattr(self, 'log_output'):
-            self.log_output(f"Found {count} icon files", "info")
+            msg = f"Found {found_count} icon files"
+            if found_count >= limit:
+                msg += f" (stopped searching at {limit} for performance)"
+            self.log_output(msg, "info")
 
         # Create grid of icon previews
         columns = 4
-        for i, icon_path in enumerate(icon_files_head):  # Limit to first 20 icons
+        # Display a subset of found icons to maintain UI performance
+        display_limit = 20
+        for i, icon_path in enumerate(icon_files[:display_limit]):
             row = i // columns
             col = i % columns
 
