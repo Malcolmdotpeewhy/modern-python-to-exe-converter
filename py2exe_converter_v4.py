@@ -11,6 +11,7 @@ import shutil
 from datetime import datetime
 import math
 import platform
+import itertools
 
 class Tooltip:
     """Enhanced tooltip for tkinter widgets."""
@@ -2061,22 +2062,28 @@ Use Help menu to access guides and export files."""
         self.empty_icons_label.place_forget()
 
         # Search for icon files
-        icon_files = []
-        for ext in ['*.ico', '*.png', '*.jpg', '*.jpeg', '*.bmp']:
-            icon_files.extend(Path(search_dir).rglob(ext))
+        generators = (Path(search_dir).rglob(ext) for ext in ['*.ico', '*.png', '*.jpg', '*.jpeg', '*.bmp'])
+        all_icons = itertools.chain.from_iterable(generators)
 
-        if not icon_files:
+        count = 0
+        icon_files_head = []
+        for icon in all_icons:
+            if count < 20:
+                icon_files_head.append(icon)
+            count += 1
+
+        if count == 0:
             self.empty_icons_label.config(text="❌ No icons found in this directory.")
             self.empty_icons_label.place(relx=0.5, rely=0.5, anchor='center')
             return
 
         # Display found icons
         if hasattr(self, 'log_output'):
-            self.log_output(f"Found {len(icon_files)} icon files", "info")
+            self.log_output(f"Found {count} icon files", "info")
 
         # Create grid of icon previews
         columns = 4
-        for i, icon_path in enumerate(icon_files[:20]):  # Limit to first 20 icons
+        for i, icon_path in enumerate(icon_files_head):  # Limit to first 20 icons
             row = i // columns
             col = i % columns
 
