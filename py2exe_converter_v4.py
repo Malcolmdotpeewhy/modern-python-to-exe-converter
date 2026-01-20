@@ -1821,12 +1821,23 @@ Use Help menu to access guides and export files."""
                 base_name = os.path.splitext(os.path.basename(source_image))[0]
                 created_icons = []
 
+                # Optimization: Resize source image to max required size once
+                # This avoids expensive resizing of large source images for every target size
+                sizes = [int(s.split('x')[0]) for s in selected_sizes]
+                max_size = max(sizes)
+
+                working_img = img
+                if img.width > max_size and img.height > max_size:
+                    if hasattr(self, 'log_output'):
+                        self.log_output(f"Optimizing: Pre-resizing source image to {max_size}x{max_size}...", "info")
+                    working_img = img.resize((max_size, max_size), Image.Resampling.LANCZOS)
+
                 # Create each size with the selected shape
                 for size_str in selected_sizes:
                     size = int(size_str.split('x')[0])
 
                     # Create shaped icon
-                    shaped_icon = self.create_shaped_icon(img, shape_key, size)
+                    shaped_icon = self.create_shaped_icon(working_img, shape_key, size)
 
                     # Save as ICO
                     ico_path = os.path.join(output_dir, f"{base_name}_{shape_key}_{size}x{size}.ico")
@@ -1838,8 +1849,8 @@ Use Help menu to access guides and export files."""
 
                 # Create multi-size ICO with shape
                 multi_ico_path = os.path.join(output_dir, f"{base_name}_{shape_key}_multi.ico")
-                sizes = [int(s.split('x')[0]) for s in selected_sizes]
-                shaped_icons = [self.create_shaped_icon(img, shape_key, s) for s in sizes]
+                # sizes is already calculated above
+                shaped_icons = [self.create_shaped_icon(working_img, shape_key, s) for s in sizes]
 
                 if shaped_icons:
                     shaped_icons[0].save(multi_ico_path, format='ICO',
