@@ -85,6 +85,8 @@ class ModernPy2ExeConverter:
 
         # Cache for mousewheel scroll targets to improve performance
         self._scroll_target_cache = {}
+        # Cache for PyInstaller availability
+        self._pyinstaller_available = None
 
         # Default directories (Desktop)
         desktop_path = os.path.join(os.path.expanduser("~"), "Desktop")
@@ -138,36 +140,30 @@ class ModernPy2ExeConverter:
     def _process_log_queue(self):
         """Process messages in the log queue to avoid UI thread blocking and ensure thread safety."""
         try:
-            # Process multiple messages at once to improve performance
+            if not hasattr(self, 'output_text') or self.log_queue.empty():
+                return
+
+            # Enable text widget once per batch to improve performance
+            self.output_text.config(state=tk.NORMAL)
+
+            # Process multiple messages at once to reduce UI overhead
             for _ in range(25):
                 try:
                     message, level = self.log_queue.get_nowait()
-                    self._do_write_log(message, level)
+                    timestamp = datetime.now().strftime("%H:%M:%S")
+
+                    # Insert timestamp and message
+                    self.output_text.insert(tk.END, f"[{timestamp}] ", "timestamp")
+                    self.output_text.insert(tk.END, f"{message}\n", level)
                 except queue.Empty:
                     break
+
+            # Auto-scroll to bottom and disable once per batch
+            self.output_text.see(tk.END)
+            self.output_text.config(state=tk.DISABLED)
         finally:
             # Schedule next check
             self.root.after(100, self._process_log_queue)
-
-    def _do_write_log(self, message, level):
-        """Actually write to the log widget. Should only be called from the main UI thread."""
-        if not hasattr(self, 'output_text'):
-            return
-
-        timestamp = datetime.now().strftime("%H:%M:%S")
-
-        # Enable text widget temporarily
-        self.output_text.config(state=tk.NORMAL)
-
-        # Insert timestamp and message
-        self.output_text.insert(tk.END, f"[{timestamp}] ", "timestamp")
-        self.output_text.insert(tk.END, f"{message}\n", level)
-
-        # Auto-scroll to bottom
-        self.output_text.see(tk.END)
-
-        # Disable text widget
-        self.output_text.config(state=tk.DISABLED)
 
     def setup_theme_system(self):
         """Initialize the theme and color system."""
@@ -1440,11 +1436,8 @@ Use Help menu to access guides and export files."""
             else:
                 warnings.append("Using default Python icon (no custom icon specified)")
 
-        # Check PyInstaller availability
-        try:
-            subprocess.run(["pyinstaller", "--version"], check=True,
-                          stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        except (FileNotFoundError, subprocess.CalledProcessError):
+        # Check PyInstaller availability (cached)
+        if not self.check_pyinstaller_availability():
             warnings.append("PyInstaller not found - will attempt to install")
 
         # Display results
@@ -1467,12 +1460,24 @@ Use Help menu to access guides and export files."""
 
         return len(errors) == 0
 
+    def check_pyinstaller_availability(self):
+        """Check if PyInstaller is available and cache the result."""
+        if self._pyinstaller_available is None:
+            try:
+                subprocess.run(["pyinstaller", "--version"], check=True,
+                              stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                self._pyinstaller_available = True
+            except (FileNotFoundError, subprocess.CalledProcessError):
+                self._pyinstaller_available = False
+        return self._pyinstaller_available
+
     def install_pyinstaller(self):
         """Install PyInstaller if not available."""
         try:
             self.log_output("Installing PyInstaller...", "info")
             subprocess.check_call([sys.executable, "-m", "pip", "install", "pyinstaller"])
             self.log_output("PyInstaller installed successfully", "success")
+            self._pyinstaller_available = True
             return True
         except Exception as e:
             self.log_output(f"Failed to install PyInstaller: {e}", "error")
@@ -1487,11 +1492,8 @@ Use Help menu to access guides and export files."""
         files = list(self.files_listbox.get(0, tk.END))
         output_dir = self.output_entry.get().strip()
 
-        # Check and install PyInstaller if necessary
-        try:
-            subprocess.run(["pyinstaller", "--version"], check=True,
-                          stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        except (FileNotFoundError, subprocess.CalledProcessError):
+        # Check and install PyInstaller if necessary (cached)
+        if not self.check_pyinstaller_availability():
             if not self.install_pyinstaller():
                 return
 
@@ -1510,10 +1512,7 @@ Use Help menu to access guides and export files."""
 
                 for i, file in enumerate(files):
                     try:
-                        # Dynamic button feedback
-                        self.convert_btn.config(text="⏳ Converting...")
-                        self.root.update()
-
+                        # Update status via log (thread-safe)
                         self.log_output(f"Converting {os.path.basename(file)}...", "info")
 
                         # Build PyInstaller command
@@ -1552,9 +1551,8 @@ Use Help menu to access guides and export files."""
                         self.log_output(f"✅ Successfully converted {os.path.basename(file)}", "success")
                         successful_conversions += 1
 
-                        # Update progress
+                        # Update progress (Variables are generally thread-safe in tkinter)
                         self.progress_var.set(i + 1)
-                        self.root.update_idletasks()
 
                     except subprocess.CalledProcessError as e:
                         error_msg = f"❌ Error converting {os.path.basename(file)}: {e}"
@@ -1581,13 +1579,17 @@ Use Help menu to access guides and export files."""
                 messagebox.showerror("Critical Error", error_msg)
 
             finally:
-                # Re-enable convert button and reset progress
-                self.convert_btn.config(state=tk.NORMAL, text="🔄 Convert to EXE")
-                self.progress_var.set(0)
-                self.status_label.config(text="Conversion completed")
+                # Re-enable UI elements safely on main thread
+                self.root.after(0, self._reset_conversion_ui)
 
         # Run conversion in a separate thread
         threading.Thread(target=run_conversion, daemon=True).start()
+
+    def _reset_conversion_ui(self):
+        """Reset the conversion UI elements. Called from main thread."""
+        self.convert_btn.config(state=tk.NORMAL, text="🔄 Convert to EXE")
+        self.progress_var.set(0)
+        self.status_label.config(text="Conversion completed")
 
     # Placeholder methods for tabs (simplified version)
     def create_icon_manager_tab(self):
@@ -1859,6 +1861,10 @@ Use Help menu to access guides and export files."""
             if hasattr(self, 'log_output'):
                 self.log_output(f"Creating {shape_display.lower()} icons from {os.path.basename(source_image)}...", "info")
 
+            # Pre-parse icon sizes to avoid redundant operations in loops
+            parsed_sizes = sorted([int(s.split('x')[0]) for s in selected_sizes])
+            max_size = parsed_sizes[-1]
+
             # Open source image
             with Image.open(source_image) as img:
                 # Convert to RGBA if necessary
@@ -1869,10 +1875,6 @@ Use Help menu to access guides and export files."""
                 created_icons = []
 
                 # Optimization: Resize source image to max required size once
-                # This avoids expensive resizing of large source images for every target size
-                sizes = [int(s.split('x')[0]) for s in selected_sizes]
-                max_size = max(sizes)
-
                 working_img = img
                 if img.width > max_size and img.height > max_size:
                     if hasattr(self, 'log_output'):
@@ -1883,9 +1885,7 @@ Use Help menu to access guides and export files."""
                 shaped_icons_cache = {}
 
                 # Create each size with the selected shape
-                for size_str in selected_sizes:
-                    size = int(size_str.split('x')[0])
-
+                for size in parsed_sizes:
                     # Create shaped icon and store in cache
                     shaped_icon = self.create_shaped_icon(working_img, shape_key, size)
                     shaped_icons_cache[size] = shaped_icon
@@ -1902,7 +1902,7 @@ Use Help menu to access guides and export files."""
                 multi_ico_path = os.path.join(output_dir, f"{base_name}_{shape_key}_multi.ico")
 
                 # Use cached icons for multi-size ICO to avoid redundant regeneration
-                shaped_icons = [shaped_icons_cache.get(s) or self.create_shaped_icon(working_img, shape_key, s) for s in sizes]
+                shaped_icons = [shaped_icons_cache[size] for size in parsed_sizes]
 
                 if shaped_icons:
                     shaped_icons[0].save(multi_ico_path, format='ICO',
@@ -1968,31 +1968,27 @@ Use Help menu to access guides and export files."""
         return self.create_rounded_icon(img, size // 8)  # Default with rounded corners
 
     def create_rounded_icon(self, img, radius):
-        """Create a rounded rectangle icon."""
+        """Create a rounded rectangle icon. Uses in-place alpha for efficiency."""
         size = img.size[0]
         mask = Image.new('L', (size, size), 0)
         draw = ImageDraw.Draw(mask)
         draw.rounded_rectangle([0, 0, size-1, size-1], radius=radius, fill=255)
 
-        result = Image.new('RGBA', (size, size), (0, 0, 0, 0))
-        result.paste(img, (0, 0))
-        result.putalpha(mask)
-        return result
+        img.putalpha(mask)
+        return img
 
     def create_circle_icon(self, img):
-        """Create a circular icon."""
+        """Create a circular icon. Uses in-place alpha for efficiency."""
         size = img.size[0]
         mask = Image.new('L', (size, size), 0)
         draw = ImageDraw.Draw(mask)
         draw.ellipse([0, 0, size-1, size-1], fill=255)
 
-        result = Image.new('RGBA', (size, size), (0, 0, 0, 0))
-        result.paste(img, (0, 0))
-        result.putalpha(mask)
-        return result
+        img.putalpha(mask)
+        return img
 
     def create_triangle_icon(self, img):
-        """Create a triangular icon."""
+        """Create a triangular icon. Uses in-place alpha for efficiency."""
         size = img.size[0]
         mask = Image.new('L', (size, size), 0)
         draw = ImageDraw.Draw(mask)
@@ -2005,13 +2001,11 @@ Use Help menu to access guides and export files."""
         ]
         draw.polygon(points, fill=255)
 
-        result = Image.new('RGBA', (size, size), (0, 0, 0, 0))
-        result.paste(img, (0, 0))
-        result.putalpha(mask)
-        return result
+        img.putalpha(mask)
+        return img
 
     def create_hexagon_icon(self, img):
-        """Create a hexagonal icon."""
+        """Create a hexagonal icon. Uses in-place alpha for efficiency."""
         size = img.size[0]
         mask = Image.new('L', (size, size), 0)
         draw = ImageDraw.Draw(mask)
@@ -2028,13 +2022,11 @@ Use Help menu to access guides and export files."""
 
         draw.polygon(points, fill=255)
 
-        result = Image.new('RGBA', (size, size), (0, 0, 0, 0))
-        result.paste(img, (0, 0))
-        result.putalpha(mask)
-        return result
+        img.putalpha(mask)
+        return img
 
     def create_star_icon(self, img):
-        """Create a star-shaped icon."""
+        """Create a star-shaped icon. Uses in-place alpha for efficiency."""
         size = img.size[0]
         mask = Image.new('L', (size, size), 0)
         draw = ImageDraw.Draw(mask)
@@ -2057,13 +2049,11 @@ Use Help menu to access guides and export files."""
 
         draw.polygon(points, fill=255)
 
-        result = Image.new('RGBA', (size, size), (0, 0, 0, 0))
-        result.paste(img, (0, 0))
-        result.putalpha(mask)
-        return result
+        img.putalpha(mask)
+        return img
 
     def create_diamond_icon(self, img):
-        """Create a diamond-shaped icon."""
+        """Create a diamond-shaped icon. Uses in-place alpha for efficiency."""
         size = img.size[0]
         mask = Image.new('L', (size, size), 0)
         draw = ImageDraw.Draw(mask)
@@ -2078,10 +2068,8 @@ Use Help menu to access guides and export files."""
         ]
         draw.polygon(points, fill=255)
 
-        result = Image.new('RGBA', (size, size), (0, 0, 0, 0))
-        result.paste(img, (0, 0))
-        result.putalpha(mask)
-        return result
+        img.putalpha(mask)
+        return img
 
     def select_search_directory(self):
         """Select directory to search for icons."""
