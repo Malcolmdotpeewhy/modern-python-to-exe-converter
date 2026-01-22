@@ -85,6 +85,8 @@ class ModernPy2ExeConverter:
 
         # Cache for mousewheel scroll targets to improve performance
         self._scroll_target_cache = {}
+        # Cache for icon shape masks
+        self._mask_cache = {}
 
         # Default directories (Desktop)
         desktop_path = os.path.join(os.path.expanduser("~"), "Desktop")
@@ -113,6 +115,7 @@ class ModernPy2ExeConverter:
         }
 
         # Create the GUI
+        self._init_button_configs()
         self.setup_styles()
         self.create_notebook()
         self.create_info_tab()
@@ -136,38 +139,111 @@ class ModernPy2ExeConverter:
         return Tooltip(widget, text)
 
     def _process_log_queue(self):
-        """Process messages in the log queue to avoid UI thread blocking and ensure thread safety."""
+        """Process messages in the log queue with batched UI updates for better performance."""
         try:
-            # Process multiple messages at once to improve performance
-            for _ in range(25):
-                try:
-                    message, level = self.log_queue.get_nowait()
-                    self._do_write_log(message, level)
-                except queue.Empty:
-                    break
+            if not self.log_queue.empty() and hasattr(self, 'output_text'):
+                # Enable text widget once for the whole batch
+                self.output_text.config(state=tk.NORMAL)
+
+                messages_processed = 0
+                # Process multiple messages at once to improve performance
+                for _ in range(25):
+                    try:
+                        message, level = self.log_queue.get_nowait()
+                        self._do_write_log(message, level)
+                        messages_processed += 1
+                    except queue.Empty:
+                        break
+
+                if messages_processed > 0:
+                    # Auto-scroll once after the batch
+                    self.output_text.see(tk.END)
+
+                # Disable text widget once after the batch
+                self.output_text.config(state=tk.DISABLED)
         finally:
             # Schedule next check
             self.root.after(100, self._process_log_queue)
 
     def _do_write_log(self, message, level):
         """Actually write to the log widget. Should only be called from the main UI thread."""
-        if not hasattr(self, 'output_text'):
-            return
-
+        # Note: widget state management and scrolling is handled in _process_log_queue for batching
         timestamp = datetime.now().strftime("%H:%M:%S")
-
-        # Enable text widget temporarily
-        self.output_text.config(state=tk.NORMAL)
 
         # Insert timestamp and message
         self.output_text.insert(tk.END, f"[{timestamp}] ", "timestamp")
         self.output_text.insert(tk.END, f"{message}\n", level)
 
-        # Auto-scroll to bottom
-        self.output_text.see(tk.END)
+    def _init_button_configs(self):
+        """Initialize button style and size configurations once to avoid repeated instantiation."""
+        self.button_styles = {
+            'default': {
+                'bg': self.colors['card'],
+                'hover': self.colors['surface'],
+                'fg': self.colors['fg']
+            },
+            'primary': {
+                'bg': self.colors['accent'],
+                'hover': self.colors['accent_hover'],
+                'fg': 'white'
+            },
+            'success': {
+                'bg': self.colors['success'],
+                'hover': '#16a34a',
+                'fg': 'white'
+            },
+            'warning': {
+                'bg': self.colors['warning'],
+                'hover': '#d97706',
+                'fg': 'white'
+            },
+            'danger': {
+                'bg': self.colors['error'],
+                'hover': '#dc2626',
+                'fg': 'white'
+            }
+        }
 
-        # Disable text widget
-        self.output_text.config(state=tk.DISABLED)
+        self.button_sizes = {
+            'normal': {'font': ('Segoe UI Semibold', self.base_font_size), 'pady': 8, 'padx': 20},
+            'large': {'font': ('Segoe UI Semibold', self.base_font_size + 2), 'pady': 12, 'padx': 30}
+        }
+
+    def _on_button_enter(self, event):
+        """Shared event handler for button hover effect."""
+        if hasattr(event.widget, 'hover_bg'):
+            event.widget.configure(bg=event.widget.hover_bg)
+
+    def _on_button_leave(self, event):
+        """Shared event handler for button leave effect."""
+        if hasattr(event.widget, 'normal_bg'):
+            event.widget.configure(bg=event.widget.normal_bg)
+
+    def _on_button_focus_in(self, event):
+        """Shared event handler for button focus effect."""
+        event.widget.configure(highlightbackground=self.colors['accent'], highlightthickness=2)
+
+    def _on_button_focus_out(self, event):
+        """Shared event handler for button blur effect."""
+        event.widget.configure(highlightbackground=self.colors['border'], highlightthickness=1)
+
+    def is_pyinstaller_available(self):
+        """Check if PyInstaller is available and cache the result."""
+        return self.get_pyinstaller_version() is not None
+
+    def get_pyinstaller_version(self):
+        """Get PyInstaller version and cache the result."""
+        if not hasattr(self, '_pyinstaller_version'):
+            try:
+                # Use subprocess to check if pyinstaller is in PATH and get version
+                result = subprocess.run(["pyinstaller", "--version"],
+                                      capture_output=True, text=True, check=True)
+                self._pyinstaller_version = result.stdout.strip()
+                self._pyinstaller_available = True
+            except (FileNotFoundError, subprocess.CalledProcessError):
+                self._pyinstaller_version = None
+                self._pyinstaller_available = False
+        return self._pyinstaller_version
 
     def setup_theme_system(self):
         """Initialize the theme and color system."""
@@ -675,15 +751,13 @@ class ModernPy2ExeConverter:
         buttons_frame = tk.Frame(info_container, bg=self.colors['surface'])
         buttons_frame.pack(fill='x', pady=(15, 0))
 
-        # Check PyInstaller button
+        # Check PyInstaller button (uses cached status/version)
         def check_pyinstaller():
-            try:
-                result = subprocess.run(["pyinstaller", "--version"],
-                                      capture_output=True, text=True, check=True)
-                version = result.stdout.strip()
+            version = self.get_pyinstaller_version()
+            if version:
                 messagebox.showinfo("PyInstaller Status",
                                    f"✅ PyInstaller is installed\nVersion: {version}")
-            except (FileNotFoundError, subprocess.CalledProcessError):
+            else:
                 result = messagebox.askyesno("PyInstaller Not Found",
                     "❌ PyInstaller is not installed or not found in PATH.\n\n"
                     "Would you like to install it now?")
@@ -1160,42 +1234,9 @@ Use Help menu to access guides and export files."""
             self.log_output(f"Failed to copy log: {e}", "error")
 
     def create_modern_button(self, parent, text, command, side, style='default', size='normal'):
-        """Create a modern styled button with enhanced appearance."""
-        styles = {
-            'default': {
-                'bg': self.colors['card'],
-                'hover': self.colors['surface'],
-                'fg': self.colors['fg']
-            },
-            'primary': {
-                'bg': self.colors['accent'],
-                'hover': self.colors['accent_hover'],
-                'fg': 'white'
-            },
-            'success': {
-                'bg': self.colors['success'],
-                'hover': '#16a34a',
-                'fg': 'white'
-            },
-            'warning': {
-                'bg': self.colors['warning'],
-                'hover': '#d97706',
-                'fg': 'white'
-            },
-            'danger': {
-                'bg': self.colors['error'],
-                'hover': '#dc2626',
-                'fg': 'white'
-            }
-        }
-        
-        sizes = {
-            'normal': {'font': ('Segoe UI Semibold', self.base_font_size), 'pady': 8, 'padx': 20},
-            'large': {'font': ('Segoe UI Semibold', self.base_font_size + 2), 'pady': 12, 'padx': 30}
-        }
-
-        style_config = styles.get(style, styles['default'])
-        size_config = sizes.get(size, sizes['normal'])
+        """Create a modern styled button with enhanced appearance using cached configs and shared handlers."""
+        style_config = self.button_styles.get(style, self.button_styles['default'])
+        size_config = self.button_sizes.get(size, self.button_sizes['normal'])
 
         btn = tk.Button(parent,
                        text=text,
@@ -1215,20 +1256,15 @@ Use Help menu to access guides and export files."""
                        relief='flat')
         btn.pack(side=side, padx=10)
 
-        # Enhanced hover effects and focus indicators
-        def on_enter(e):
-            btn.configure(bg=style_config['hover'])
-        def on_leave(e):
-            btn.configure(bg=style_config['bg'])
-        def on_focus_in(e):
-            btn.configure(highlightbackground=self.colors['accent'], highlightthickness=2)
-        def on_focus_out(e):
-            btn.configure(highlightbackground=self.colors['border'], highlightthickness=1)
+        # Optimization: Use shared event handlers to reduce memory and function creation overhead
+        # Store state on the widget for the shared handlers
+        btn.normal_bg = style_config['bg']
+        btn.hover_bg = style_config['hover']
 
-        btn.bind("<Enter>", on_enter)
-        btn.bind("<Leave>", on_leave)
-        btn.bind("<FocusIn>", on_focus_in)
-        btn.bind("<FocusOut>", on_focus_out)
+        btn.bind("<Enter>", self._on_button_enter)
+        btn.bind("<Leave>", self._on_button_leave)
+        btn.bind("<FocusIn>", self._on_button_focus_in)
+        btn.bind("<FocusOut>", self._on_button_focus_out)
 
         return btn
 
@@ -1440,11 +1476,8 @@ Use Help menu to access guides and export files."""
             else:
                 warnings.append("Using default Python icon (no custom icon specified)")
 
-        # Check PyInstaller availability
-        try:
-            subprocess.run(["pyinstaller", "--version"], check=True,
-                          stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        except (FileNotFoundError, subprocess.CalledProcessError):
+        # Check PyInstaller availability (using cached result for performance)
+        if not self.is_pyinstaller_available():
             warnings.append("PyInstaller not found - will attempt to install")
 
         # Display results
@@ -1472,6 +1505,10 @@ Use Help menu to access guides and export files."""
         try:
             self.log_output("Installing PyInstaller...", "info")
             subprocess.check_call([sys.executable, "-m", "pip", "install", "pyinstaller"])
+            # Update cache after successful installation
+            if hasattr(self, '_pyinstaller_version'):
+                del self._pyinstaller_version
+            self._pyinstaller_available = True
             self.log_output("PyInstaller installed successfully", "success")
             return True
         except Exception as e:
@@ -1968,118 +2005,148 @@ Use Help menu to access guides and export files."""
         return self.create_rounded_icon(img, size // 8)  # Default with rounded corners
 
     def create_rounded_icon(self, img, radius):
-        """Create a rounded rectangle icon."""
+        """Create a rounded rectangle icon using cached mask if available."""
         size = img.size[0]
-        mask = Image.new('L', (size, size), 0)
-        draw = ImageDraw.Draw(mask)
-        draw.rounded_rectangle([0, 0, size-1, size-1], radius=radius, fill=255)
+        mask_key = f"rounded_{size}_{radius}"
 
-        result = Image.new('RGBA', (size, size), (0, 0, 0, 0))
-        result.paste(img, (0, 0))
+        if mask_key in self._mask_cache:
+            mask = self._mask_cache[mask_key]
+        else:
+            mask = Image.new('L', (size, size), 0)
+            draw = ImageDraw.Draw(mask)
+            draw.rounded_rectangle([0, 0, size-1, size-1], radius=radius, fill=255)
+            self._mask_cache[mask_key] = mask
+
+        # Optimization: Apply mask directly to converted image to avoid redundant buffers
+        result = img.convert('RGBA')
         result.putalpha(mask)
         return result
 
     def create_circle_icon(self, img):
-        """Create a circular icon."""
+        """Create a circular icon using cached mask if available."""
         size = img.size[0]
-        mask = Image.new('L', (size, size), 0)
-        draw = ImageDraw.Draw(mask)
-        draw.ellipse([0, 0, size-1, size-1], fill=255)
+        mask_key = f"circle_{size}"
 
-        result = Image.new('RGBA', (size, size), (0, 0, 0, 0))
-        result.paste(img, (0, 0))
+        if mask_key in self._mask_cache:
+            mask = self._mask_cache[mask_key]
+        else:
+            mask = Image.new('L', (size, size), 0)
+            draw = ImageDraw.Draw(mask)
+            draw.ellipse([0, 0, size-1, size-1], fill=255)
+            self._mask_cache[mask_key] = mask
+
+        # Optimization: Apply mask directly to converted image to avoid redundant buffers
+        result = img.convert('RGBA')
         result.putalpha(mask)
         return result
 
     def create_triangle_icon(self, img):
-        """Create a triangular icon."""
+        """Create a triangular icon using cached mask if available."""
         size = img.size[0]
-        mask = Image.new('L', (size, size), 0)
-        draw = ImageDraw.Draw(mask)
+        mask_key = f"triangle_{size}"
 
-        # Equilateral triangle with rounded corners effect
-        points = [
-            (size // 2, 5),  # Top
-            (5, size - 5),   # Bottom left
-            (size - 5, size - 5)  # Bottom right
-        ]
-        draw.polygon(points, fill=255)
+        if mask_key in self._mask_cache:
+            mask = self._mask_cache[mask_key]
+        else:
+            mask = Image.new('L', (size, size), 0)
+            draw = ImageDraw.Draw(mask)
+            # Equilateral triangle with rounded corners effect
+            points = [
+                (size // 2, 5),  # Top
+                (5, size - 5),   # Bottom left
+                (size - 5, size - 5)  # Bottom right
+            ]
+            draw.polygon(points, fill=255)
+            self._mask_cache[mask_key] = mask
 
-        result = Image.new('RGBA', (size, size), (0, 0, 0, 0))
-        result.paste(img, (0, 0))
+        # Optimization: Apply mask directly to converted image to avoid redundant buffers
+        result = img.convert('RGBA')
         result.putalpha(mask)
         return result
 
     def create_hexagon_icon(self, img):
-        """Create a hexagonal icon."""
+        """Create a hexagonal icon using cached mask if available."""
         size = img.size[0]
-        mask = Image.new('L', (size, size), 0)
-        draw = ImageDraw.Draw(mask)
+        mask_key = f"hexagon_{size}"
 
-        # Regular hexagon
-        center = size // 2
-        radius = center - 5
-        points = []
-        for i in range(6):
-            angle = math.radians(60 * i)
-            x = center + radius * math.cos(angle)
-            y = center + radius * math.sin(angle)
-            points.append((x, y))
+        if mask_key in self._mask_cache:
+            mask = self._mask_cache[mask_key]
+        else:
+            mask = Image.new('L', (size, size), 0)
+            draw = ImageDraw.Draw(mask)
+            # Regular hexagon
+            center = size // 2
+            radius = center - 5
+            points = []
+            for i in range(6):
+                angle = math.radians(60 * i)
+                x = center + radius * math.cos(angle)
+                y = center + radius * math.sin(angle)
+                points.append((x, y))
+            draw.polygon(points, fill=255)
+            self._mask_cache[mask_key] = mask
 
-        draw.polygon(points, fill=255)
-
-        result = Image.new('RGBA', (size, size), (0, 0, 0, 0))
-        result.paste(img, (0, 0))
+        # Optimization: Apply mask directly to converted image to avoid redundant buffers
+        result = img.convert('RGBA')
         result.putalpha(mask)
         return result
 
     def create_star_icon(self, img):
-        """Create a star-shaped icon."""
+        """Create a star-shaped icon using cached mask if available."""
         size = img.size[0]
-        mask = Image.new('L', (size, size), 0)
-        draw = ImageDraw.Draw(mask)
+        mask_key = f"star_{size}"
 
-        # 5-pointed star
-        center = size // 2
-        outer_radius = center - 5
-        inner_radius = outer_radius * 0.4
+        if mask_key in self._mask_cache:
+            mask = self._mask_cache[mask_key]
+        else:
+            mask = Image.new('L', (size, size), 0)
+            draw = ImageDraw.Draw(mask)
+            # 5-pointed star
+            center = size // 2
+            outer_radius = center - 5
+            inner_radius = outer_radius * 0.4
 
-        points = []
-        for i in range(10):
-            angle = math.radians(36 * i - 90)  # Start from top
-            if i % 2 == 0:  # Outer points
-                radius = outer_radius
-            else:  # Inner points
-                radius = inner_radius
-            x = center + radius * math.cos(angle)
-            y = center + radius * math.sin(angle)
-            points.append((x, y))
+            points = []
+            for i in range(10):
+                angle = math.radians(36 * i - 90)  # Start from top
+                if i % 2 == 0:  # Outer points
+                    radius = outer_radius
+                else:  # Inner points
+                    radius = inner_radius
+                x = center + radius * math.cos(angle)
+                y = center + radius * math.sin(angle)
+                points.append((x, y))
+            draw.polygon(points, fill=255)
+            self._mask_cache[mask_key] = mask
 
-        draw.polygon(points, fill=255)
-
-        result = Image.new('RGBA', (size, size), (0, 0, 0, 0))
-        result.paste(img, (0, 0))
+        # Optimization: Apply mask directly to converted image to avoid redundant buffers
+        result = img.convert('RGBA')
         result.putalpha(mask)
         return result
 
     def create_diamond_icon(self, img):
-        """Create a diamond-shaped icon."""
+        """Create a diamond-shaped icon using cached mask if available."""
         size = img.size[0]
-        mask = Image.new('L', (size, size), 0)
-        draw = ImageDraw.Draw(mask)
+        mask_key = f"diamond_{size}"
 
-        # Diamond (rotated square)
-        center = size // 2
-        points = [
-            (center, 5),          # Top
-            (size - 5, center),   # Right
-            (center, size - 5),   # Bottom
-            (5, center)           # Left
-        ]
-        draw.polygon(points, fill=255)
+        if mask_key in self._mask_cache:
+            mask = self._mask_cache[mask_key]
+        else:
+            mask = Image.new('L', (size, size), 0)
+            draw = ImageDraw.Draw(mask)
+            # Diamond (rotated square)
+            center = size // 2
+            points = [
+                (center, 5),          # Top
+                (size - 5, center),   # Right
+                (center, size - 5),   # Bottom
+                (5, center)           # Left
+            ]
+            draw.polygon(points, fill=255)
+            self._mask_cache[mask_key] = mask
 
-        result = Image.new('RGBA', (size, size), (0, 0, 0, 0))
-        result.paste(img, (0, 0))
+        # Optimization: Apply mask directly to converted image to avoid redundant buffers
+        result = img.convert('RGBA')
         result.putalpha(mask)
         return result
 
