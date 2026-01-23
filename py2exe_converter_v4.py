@@ -86,6 +86,9 @@ class ModernPy2ExeConverter:
         # Cache for mousewheel scroll targets to improve performance
         self._scroll_target_cache = {}
 
+        # Cache for PyInstaller version to avoid repeated subprocess calls
+        self._pyinstaller_version = None
+
         # Default directories (Desktop)
         desktop_path = os.path.join(os.path.expanduser("~"), "Desktop")
         self.default_settings = {
@@ -677,13 +680,11 @@ class ModernPy2ExeConverter:
 
         # Check PyInstaller button
         def check_pyinstaller():
-            try:
-                result = subprocess.run(["pyinstaller", "--version"],
-                                      capture_output=True, text=True, check=True)
-                version = result.stdout.strip()
+            version = self._get_pyinstaller_status()
+            if version:
                 messagebox.showinfo("PyInstaller Status",
                                    f"✅ PyInstaller is installed\nVersion: {version}")
-            except (FileNotFoundError, subprocess.CalledProcessError):
+            else:
                 result = messagebox.askyesno("PyInstaller Not Found",
                     "❌ PyInstaller is not installed or not found in PATH.\n\n"
                     "Would you like to install it now?")
@@ -1467,13 +1468,33 @@ Use Help menu to access guides and export files."""
 
         return len(errors) == 0
 
+    def _get_pyinstaller_status(self):
+        """Get PyInstaller version with caching to improve performance."""
+        if self._pyinstaller_version is not None:
+            return self._pyinstaller_version
+
+        try:
+            result = subprocess.run(["pyinstaller", "--version"],
+                                  capture_output=True, text=True, check=True)
+            self._pyinstaller_version = result.stdout.strip()
+            return self._pyinstaller_version
+        except (FileNotFoundError, subprocess.CalledProcessError):
+            return False
+
     def install_pyinstaller(self):
         """Install PyInstaller if not available."""
         try:
             self.log_output("Installing PyInstaller...", "info")
             subprocess.check_call([sys.executable, "-m", "pip", "install", "pyinstaller"])
-            self.log_output("PyInstaller installed successfully", "success")
-            return True
+
+            # Reset cache and verify installation
+            self._pyinstaller_version = None
+            if self._get_pyinstaller_status():
+                self.log_output("PyInstaller installed successfully", "success")
+                return True
+            else:
+                raise Exception("Installation appeared successful but PyInstaller is still not found")
+
         except Exception as e:
             self.log_output(f"Failed to install PyInstaller: {e}", "error")
             messagebox.showerror("Installation Error", f"Failed to install PyInstaller: {e}")
@@ -1488,10 +1509,7 @@ Use Help menu to access guides and export files."""
         output_dir = self.output_entry.get().strip()
 
         # Check and install PyInstaller if necessary
-        try:
-            subprocess.run(["pyinstaller", "--version"], check=True,
-                          stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        except (FileNotFoundError, subprocess.CalledProcessError):
+        if not self._get_pyinstaller_status():
             if not self.install_pyinstaller():
                 return
 
