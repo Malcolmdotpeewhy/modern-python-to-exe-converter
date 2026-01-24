@@ -86,6 +86,10 @@ class ModernPy2ExeConverter:
         # Cache for mousewheel scroll targets to improve performance
         self._scroll_target_cache = {}
 
+        # Cache for icon shape masks and external tool status
+        self._mask_cache = {}
+        self._pyinstaller_version = None
+
         # Default directories (Desktop)
         desktop_path = os.path.join(os.path.expanduser("~"), "Desktop")
         self.default_settings = {
@@ -139,35 +143,36 @@ class ModernPy2ExeConverter:
         """Process messages in the log queue to avoid UI thread blocking and ensure thread safety."""
         try:
             # Process multiple messages at once to improve performance
+            processed = False
             for _ in range(25):
                 try:
                     message, level = self.log_queue.get_nowait()
+                    if not processed:
+                        # Enable text widget temporarily for the batch
+                        self.output_text.config(state=tk.NORMAL)
+                        processed = True
                     self._do_write_log(message, level)
                 except queue.Empty:
                     break
+
+            if processed:
+                # Auto-scroll and disable once per batch for better performance
+                self.output_text.see(tk.END)
+                self.output_text.config(state=tk.DISABLED)
         finally:
             # Schedule next check
             self.root.after(100, self._process_log_queue)
 
     def _do_write_log(self, message, level):
-        """Actually write to the log widget. Should only be called from the main UI thread."""
+        """Actually write to the log widget. UI state management is handled by the caller batching."""
         if not hasattr(self, 'output_text'):
             return
 
         timestamp = datetime.now().strftime("%H:%M:%S")
 
-        # Enable text widget temporarily
-        self.output_text.config(state=tk.NORMAL)
-
         # Insert timestamp and message
         self.output_text.insert(tk.END, f"[{timestamp}] ", "timestamp")
         self.output_text.insert(tk.END, f"{message}\n", level)
-
-        # Auto-scroll to bottom
-        self.output_text.see(tk.END)
-
-        # Disable text widget
-        self.output_text.config(state=tk.DISABLED)
 
     def setup_theme_system(self):
         """Initialize the theme and color system."""
@@ -678,9 +683,14 @@ class ModernPy2ExeConverter:
         # Check PyInstaller button
         def check_pyinstaller():
             try:
-                result = subprocess.run(["pyinstaller", "--version"],
-                                      capture_output=True, text=True, check=True)
-                version = result.stdout.strip()
+                if self._pyinstaller_version:
+                    version = self._pyinstaller_version
+                else:
+                    result = subprocess.run(["pyinstaller", "--version"],
+                                          capture_output=True, text=True, check=True)
+                    version = result.stdout.strip()
+                    self._pyinstaller_version = version
+
                 messagebox.showinfo("PyInstaller Status",
                                    f"✅ PyInstaller is installed\nVersion: {version}")
             except (FileNotFoundError, subprocess.CalledProcessError):
@@ -1259,14 +1269,20 @@ Use Help menu to access guides and export files."""
 
     # File and directory selection methods
     def select_files(self):
-        """Select multiple Python files to convert."""
+        """Select multiple Python files to convert with optimized duplicate checking."""
         files = filedialog.askopenfilenames(
             filetypes=[("Python Files", "*.py"), ("All files", "*.*")],
             title="Select Python Files to Convert"
         )
+        if not files:
+            return
+
+        # Optimization: Use a set for O(1) duplicate checking instead of O(N) listbox lookup
+        current_files = set(self.files_listbox.get(0, tk.END))
         for file in files:
-            if file not in self.files_listbox.get(0, tk.END):
+            if file not in current_files:
                 self.files_listbox.insert(tk.END, file)
+                current_files.add(file)
                 self.log_output(f"Added file: {os.path.basename(file)}", "info")
 
     def remove_selected(self, listbox):
@@ -1442,8 +1458,9 @@ Use Help menu to access guides and export files."""
 
         # Check PyInstaller availability
         try:
-            subprocess.run(["pyinstaller", "--version"], check=True,
-                          stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            if not self._pyinstaller_version:
+                result = subprocess.run(["pyinstaller", "--version"], capture_output=True, text=True, check=True)
+                self._pyinstaller_version = result.stdout.strip()
         except (FileNotFoundError, subprocess.CalledProcessError):
             warnings.append("PyInstaller not found - will attempt to install")
 
@@ -1473,6 +1490,7 @@ Use Help menu to access guides and export files."""
             self.log_output("Installing PyInstaller...", "info")
             subprocess.check_call([sys.executable, "-m", "pip", "install", "pyinstaller"])
             self.log_output("PyInstaller installed successfully", "success")
+            self._pyinstaller_version = None  # Reset cache to force re-detection
             return True
         except Exception as e:
             self.log_output(f"Failed to install PyInstaller: {e}", "error")
@@ -1489,8 +1507,9 @@ Use Help menu to access guides and export files."""
 
         # Check and install PyInstaller if necessary
         try:
-            subprocess.run(["pyinstaller", "--version"], check=True,
-                          stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            if not self._pyinstaller_version:
+                result = subprocess.run(["pyinstaller", "--version"], capture_output=True, text=True, check=True)
+                self._pyinstaller_version = result.stdout.strip()
         except (FileNotFoundError, subprocess.CalledProcessError):
             if not self.install_pyinstaller():
                 return
@@ -1968,120 +1987,116 @@ Use Help menu to access guides and export files."""
         return self.create_rounded_icon(img, size // 8)  # Default with rounded corners
 
     def create_rounded_icon(self, img, radius):
-        """Create a rounded rectangle icon."""
+        """Create a rounded rectangle icon with mask caching."""
         size = img.size[0]
-        mask = Image.new('L', (size, size), 0)
-        draw = ImageDraw.Draw(mask)
-        draw.rounded_rectangle([0, 0, size-1, size-1], radius=radius, fill=255)
+        cache_key = ('rounded', size, radius)
+        if cache_key not in self._mask_cache:
+            mask = Image.new('L', (size, size), 0)
+            draw = ImageDraw.Draw(mask)
+            draw.rounded_rectangle([0, 0, size-1, size-1], radius=radius, fill=255)
+            self._mask_cache[cache_key] = mask
 
-        result = Image.new('RGBA', (size, size), (0, 0, 0, 0))
-        result.paste(img, (0, 0))
-        result.putalpha(mask)
-        return result
+        img.putalpha(self._mask_cache[cache_key])
+        return img
 
     def create_circle_icon(self, img):
-        """Create a circular icon."""
+        """Create a circular icon with mask caching."""
         size = img.size[0]
-        mask = Image.new('L', (size, size), 0)
-        draw = ImageDraw.Draw(mask)
-        draw.ellipse([0, 0, size-1, size-1], fill=255)
+        cache_key = ('circle', size)
+        if cache_key not in self._mask_cache:
+            mask = Image.new('L', (size, size), 0)
+            draw = ImageDraw.Draw(mask)
+            draw.ellipse([0, 0, size-1, size-1], fill=255)
+            self._mask_cache[cache_key] = mask
 
-        result = Image.new('RGBA', (size, size), (0, 0, 0, 0))
-        result.paste(img, (0, 0))
-        result.putalpha(mask)
-        return result
+        img.putalpha(self._mask_cache[cache_key])
+        return img
 
     def create_triangle_icon(self, img):
-        """Create a triangular icon."""
+        """Create a triangular icon with mask caching."""
         size = img.size[0]
-        mask = Image.new('L', (size, size), 0)
-        draw = ImageDraw.Draw(mask)
+        cache_key = ('triangle', size)
+        if cache_key not in self._mask_cache:
+            mask = Image.new('L', (size, size), 0)
+            draw = ImageDraw.Draw(mask)
+            # Equilateral triangle with rounded corners effect
+            points = [
+                (size // 2, 5),  # Top
+                (5, size - 5),   # Bottom left
+                (size - 5, size - 5)  # Bottom right
+            ]
+            draw.polygon(points, fill=255)
+            self._mask_cache[cache_key] = mask
 
-        # Equilateral triangle with rounded corners effect
-        points = [
-            (size // 2, 5),  # Top
-            (5, size - 5),   # Bottom left
-            (size - 5, size - 5)  # Bottom right
-        ]
-        draw.polygon(points, fill=255)
-
-        result = Image.new('RGBA', (size, size), (0, 0, 0, 0))
-        result.paste(img, (0, 0))
-        result.putalpha(mask)
-        return result
+        img.putalpha(self._mask_cache[cache_key])
+        return img
 
     def create_hexagon_icon(self, img):
-        """Create a hexagonal icon."""
+        """Create a hexagonal icon with mask caching."""
         size = img.size[0]
-        mask = Image.new('L', (size, size), 0)
-        draw = ImageDraw.Draw(mask)
+        cache_key = ('hexagon', size)
+        if cache_key not in self._mask_cache:
+            mask = Image.new('L', (size, size), 0)
+            draw = ImageDraw.Draw(mask)
+            # Regular hexagon
+            center = size // 2
+            radius = center - 5
+            points = []
+            for i in range(6):
+                angle = math.radians(60 * i)
+                x = center + radius * math.cos(angle)
+                y = center + radius * math.sin(angle)
+                points.append((x, y))
+            draw.polygon(points, fill=255)
+            self._mask_cache[cache_key] = mask
 
-        # Regular hexagon
-        center = size // 2
-        radius = center - 5
-        points = []
-        for i in range(6):
-            angle = math.radians(60 * i)
-            x = center + radius * math.cos(angle)
-            y = center + radius * math.sin(angle)
-            points.append((x, y))
-
-        draw.polygon(points, fill=255)
-
-        result = Image.new('RGBA', (size, size), (0, 0, 0, 0))
-        result.paste(img, (0, 0))
-        result.putalpha(mask)
-        return result
+        img.putalpha(self._mask_cache[cache_key])
+        return img
 
     def create_star_icon(self, img):
-        """Create a star-shaped icon."""
+        """Create a star-shaped icon with mask caching."""
         size = img.size[0]
-        mask = Image.new('L', (size, size), 0)
-        draw = ImageDraw.Draw(mask)
+        cache_key = ('star', size)
+        if cache_key not in self._mask_cache:
+            mask = Image.new('L', (size, size), 0)
+            draw = ImageDraw.Draw(mask)
+            # 5-pointed star
+            center = size // 2
+            outer_radius = center - 5
+            inner_radius = outer_radius * 0.4
+            points = []
+            for i in range(10):
+                angle = math.radians(36 * i - 90)  # Start from top
+                radius = outer_radius if i % 2 == 0 else inner_radius
+                x = center + radius * math.cos(angle)
+                y = center + radius * math.sin(angle)
+                points.append((x, y))
+            draw.polygon(points, fill=255)
+            self._mask_cache[cache_key] = mask
 
-        # 5-pointed star
-        center = size // 2
-        outer_radius = center - 5
-        inner_radius = outer_radius * 0.4
-
-        points = []
-        for i in range(10):
-            angle = math.radians(36 * i - 90)  # Start from top
-            if i % 2 == 0:  # Outer points
-                radius = outer_radius
-            else:  # Inner points
-                radius = inner_radius
-            x = center + radius * math.cos(angle)
-            y = center + radius * math.sin(angle)
-            points.append((x, y))
-
-        draw.polygon(points, fill=255)
-
-        result = Image.new('RGBA', (size, size), (0, 0, 0, 0))
-        result.paste(img, (0, 0))
-        result.putalpha(mask)
-        return result
+        img.putalpha(self._mask_cache[cache_key])
+        return img
 
     def create_diamond_icon(self, img):
-        """Create a diamond-shaped icon."""
+        """Create a diamond-shaped icon with mask caching."""
         size = img.size[0]
-        mask = Image.new('L', (size, size), 0)
-        draw = ImageDraw.Draw(mask)
+        cache_key = ('diamond', size)
+        if cache_key not in self._mask_cache:
+            mask = Image.new('L', (size, size), 0)
+            draw = ImageDraw.Draw(mask)
+            # Diamond (rotated square)
+            center = size // 2
+            points = [
+                (center, 5),          # Top
+                (size - 5, center),   # Right
+                (center, size - 5),   # Bottom
+                (5, center)           # Left
+            ]
+            draw.polygon(points, fill=255)
+            self._mask_cache[cache_key] = mask
 
-        # Diamond (rotated square)
-        center = size // 2
-        points = [
-            (center, 5),          # Top
-            (size - 5, center),   # Right
-            (center, size - 5),   # Bottom
-            (5, center)           # Left
-        ]
-        draw.polygon(points, fill=255)
-
-        result = Image.new('RGBA', (size, size), (0, 0, 0, 0))
-        result.paste(img, (0, 0))
-        result.putalpha(mask)
-        return result
+        img.putalpha(self._mask_cache[cache_key])
+        return img
 
     def select_search_directory(self):
         """Select directory to search for icons."""
