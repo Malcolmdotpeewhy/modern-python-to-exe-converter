@@ -10,3 +10,9 @@
 3. Cache icon generation results.
 4. Optimize logging with thread-safe queue and batched updates.
 5. Cache scrollable targets in mousewheel events.
+
+## 2025-05-16 - Testing Tkinter in Headless Environments
+
+**Learning:** When unit testing Tkinter components that use f-string formatting on `StringVar` or `DoubleVar` results (e.g., `f"{var.get():.0%}"`), `MagicMock` will fail with a `TypeError` because it doesn't support the format specifier.
+
+**Action:** Always configure mocks for Tkinter variables to return concrete numeric or string values (e.g., `mock_tk.DoubleVar.return_value.get.return_value = 0.95`) before they are accessed by UI code.
