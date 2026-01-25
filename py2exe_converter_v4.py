@@ -2034,7 +2034,6 @@ Use Help menu to access guides and export files."""
     def search_icons(self):
         """Search for icon files in the specified directory."""
         search_dir = self.search_entry.get().strip()
-        # Handle placeholder
         if search_dir == "Directory to search for icons...":
             search_dir = ""
 
@@ -2042,30 +2041,29 @@ Use Help menu to access guides and export files."""
             messagebox.showerror("Error", "Please select a valid directory to search.")
             return
 
-        # Clear previous results
         for widget in self.icons_scrollable_frame.winfo_children():
             widget.destroy()
 
-        # Hide empty state label
         self.empty_icons_label.place_forget()
 
-        # Search for icon files
         icon_files = []
-        for ext in ['*.ico', '*.png', '*.jpg', '*.jpeg', '*.bmp']:
-            icon_files.extend(Path(search_dir).rglob(ext))
+        supported_extensions = {'.ico', '.png', '.jpg', '.jpeg', '.bmp'}
+
+        for root, _, files in os.walk(search_dir):
+            for file in files:
+                if Path(file).suffix.lower() in supported_extensions:
+                    icon_files.append(Path(root) / file)
 
         if not icon_files:
             self.empty_icons_label.config(text="❌ No icons found in this directory.")
             self.empty_icons_label.place(relx=0.5, rely=0.5, anchor='center')
             return
 
-        # Display found icons
         if hasattr(self, 'log_output'):
             self.log_output(f"Found {len(icon_files)} icon files", "info")
 
-        # Create grid of icon previews
         columns = 4
-        for i, icon_path in enumerate(icon_files[:20]):  # Limit to first 20 icons
+        for i, icon_path in enumerate(icon_files[:20]):
             row = i // columns
             col = i % columns
 
@@ -2073,7 +2071,6 @@ Use Help menu to access guides and export files."""
             icon_frame.grid(row=row, column=col, padx=10, pady=10, sticky='w')
 
             try:
-                # Create icon preview
                 with Image.open(icon_path) as img:
                     img.thumbnail((64, 64), Image.Resampling.LANCZOS)
                     icon_photo = ImageTk.PhotoImage(img)
@@ -2089,20 +2086,15 @@ Use Help menu to access guides and export files."""
                                         highlightbackground=self.colors['border'],
                                         cursor='hand2')
                     icon_btn.pack()
-
-                    # Keep reference to prevent garbage collection
                     icon_btn.image = icon_photo
 
-                    # Icon filename label
                     name_label = tk.Label(icon_frame,
                                          text=icon_path.name[:15] + "..." if len(icon_path.name) > 15 else icon_path.name,
                                          bg=self.colors['card'],
                                          fg=self.colors['fg'],
                                          font=('Segoe UI', self.base_font_size - 1))
                     name_label.pack()
-
             except Exception as e:
-                # Fallback for unreadable images
                 error_label = tk.Label(icon_frame,
                                       text="Invalid\nImage",
                                       bg=self.colors['card'],
