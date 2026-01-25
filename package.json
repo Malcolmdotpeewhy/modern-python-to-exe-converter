@@ -1,0 +1,15 @@
+{
+  "name": "league-companion",
+  "version": "1.0.0",
+  "description": "League of Legends Companion Application",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron ."
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "electron": "^34.1.0"
+  }
+}
