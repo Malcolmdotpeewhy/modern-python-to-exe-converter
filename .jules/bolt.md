@@ -20,3 +20,12 @@
 2. Implement batching for high-frequency UI updates like log outputs.
 3. Cache expensive-to-create resources like image masks.
 4. Use O(1) data structures (sets) for membership checks in loops.
+
+## 2025-05-17 - Recursive Scanner and Progressive Resizing
+
+**Learning:** Replacing os.walk with a recursive os.scandir generator for icon search significantly reduces latency in large directories by allowing immediate exit upon reaching search limits. Furthermore, progressive resizing (downscaling from a previously resized image rather than the high-res original) noticeably speeds up multi-size icon generation with minimal quality loss.
+
+**Action:**
+1. Use generators with os.scandir for any directory traversal with early-exit conditions.
+2. Implement progressive downsampling in image processing pipelines involving multiple output sizes.
+3. Batch Tkinter widget updates (like Listbox.insert) to minimize IPC overhead.

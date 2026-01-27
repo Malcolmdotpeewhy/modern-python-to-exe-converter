@@ -53,6 +53,15 @@ except ImportError:
 class ModernPy2ExeConverter:
     """Modern Python to EXE Converter with enhanced GUI and icon management."""
 
+    # Optimization: Cache static button configurations at class level to avoid redundant dict creation
+    BUTTON_STYLES = {
+        'default': {'bg_key': 'card', 'hover_key': 'surface', 'fg_key': 'fg', 'custom_fg': None},
+        'primary': {'bg_key': 'accent', 'hover_key': 'accent_hover', 'fg_key': None, 'custom_fg': 'white'},
+        'success': {'bg_key': 'success', 'hover_key': None, 'custom_hover': '#16a34a', 'fg_key': None, 'custom_fg': 'white'},
+        'warning': {'bg_key': 'warning', 'hover_key': None, 'custom_hover': '#d97706', 'fg_key': None, 'custom_fg': 'white'},
+        'danger': {'bg_key': 'error', 'hover_key': None, 'custom_hover': '#dc2626', 'fg_key': None, 'custom_fg': 'white'}
+    }
+
     def __init__(self):
         """Initialize the main application window with modern styling."""
         self.root = tk.Tk()
@@ -141,36 +150,40 @@ class ModernPy2ExeConverter:
         return Tooltip(widget, text)
 
     def _process_log_queue(self):
-        """Process messages in the log queue with batched UI updates for better performance."""
+        """Process messages in the log queue with dynamic batching and conditional auto-scroll."""
         if not hasattr(self, 'output_text') or not self.output_text:
             self.root.after(100, self._process_log_queue)
             return
 
+        queue_size = self.log_queue.qsize()
+        if queue_size == 0:
+            self.root.after(100, self._process_log_queue)
+            return
+
         messages_processed = 0
+        # Optimization: Dynamic batch size based on queue depth to clear large backlogs faster
+        batch_size = min(100, max(25, queue_size))
+
+        # Performance: Determine if we should auto-scroll before modifying text
+        current_yview = self.output_text.yview()
+        should_scroll = current_yview[1] >= 0.98
+
+        self.output_text.config(state=tk.NORMAL)
         try:
-            # Optimization: Process up to 25 messages per tick to minimize UI thread overhead
-            for _ in range(25):
+            for _ in range(batch_size):
                 try:
                     message, level = self.log_queue.get_nowait()
-
-                    # Batch UI updates: Enable once per batch
-                    if messages_processed == 0:
-                        self.output_text.config(state=tk.NORMAL)
-
                     timestamp = datetime.now().strftime("%H:%M:%S")
                     self.output_text.insert(tk.END, f"[{timestamp}] ", "timestamp")
                     self.output_text.insert(tk.END, f"{message}\n", level)
-
                     messages_processed += 1
                 except queue.Empty:
                     break
         finally:
             if messages_processed > 0:
-                # Batch UI updates: Scroll and disable once per batch
-                self.output_text.see(tk.END)
-                self.output_text.config(state=tk.DISABLED)
-
-            # Schedule next check
+                if should_scroll:
+                    self.output_text.see(tk.END)
+            self.output_text.config(state=tk.DISABLED)
             self.root.after(100, self._process_log_queue)
 
     def _do_write_log(self, message, level):
@@ -1182,42 +1195,22 @@ Use Help menu to access guides and export files."""
             self.log_output(f"Failed to copy log: {e}", "error")
 
     def create_modern_button(self, parent, text, command, side, style='default', size='normal'):
-        """Create a modern styled button with enhanced appearance."""
-        styles = {
-            'default': {
-                'bg': self.colors['card'],
-                'hover': self.colors['surface'],
-                'fg': self.colors['fg']
-            },
-            'primary': {
-                'bg': self.colors['accent'],
-                'hover': self.colors['accent_hover'],
-                'fg': 'white'
-            },
-            'success': {
-                'bg': self.colors['success'],
-                'hover': '#16a34a',
-                'fg': 'white'
-            },
-            'warning': {
-                'bg': self.colors['warning'],
-                'hover': '#d97706',
-                'fg': 'white'
-            },
-            'danger': {
-                'bg': self.colors['error'],
-                'hover': '#dc2626',
-                'fg': 'white'
-            }
-        }
+        """Create a modern styled button with enhanced appearance using cached configurations."""
+        # Get static style config
+        cfg = self.BUTTON_STYLES.get(style, self.BUTTON_STYLES['default'])
         
-        sizes = {
-            'normal': {'font': ('Segoe UI Semibold', self.base_font_size), 'pady': 8, 'padx': 20},
-            'large': {'font': ('Segoe UI Semibold', self.base_font_size + 2), 'pady': 12, 'padx': 30}
+        # Build style from current colors
+        style_config = {
+            'bg': self.colors[cfg['bg_key']] if cfg['bg_key'] else cfg.get('custom_bg'),
+            'hover': self.colors[cfg['hover_key']] if cfg['hover_key'] else cfg.get('custom_hover'),
+            'fg': self.colors[cfg['fg_key']] if cfg['fg_key'] else cfg.get('custom_fg')
         }
 
-        style_config = styles.get(style, styles['default'])
-        size_config = sizes.get(size, sizes['normal'])
+        # Get size config
+        if size == 'large':
+            size_config = {'font': ('Segoe UI Semibold', self.base_font_size + 2), 'pady': 12, 'padx': 30}
+        else: # normal
+            size_config = {'font': ('Segoe UI Semibold', self.base_font_size), 'pady': 8, 'padx': 20}
 
         btn = tk.Button(parent,
                        text=text,
@@ -1281,7 +1274,7 @@ Use Help menu to access guides and export files."""
 
     # File and directory selection methods
     def select_files(self):
-        """Select multiple Python files to convert with O(1) duplicate checks."""
+        """Select multiple Python files to convert with O(1) duplicate checks and batch insertion."""
         files = filedialog.askopenfilenames(
             filetypes=[("Python Files", "*.py"), ("All files", "*.*")],
             title="Select Python Files to Convert"
@@ -1289,11 +1282,16 @@ Use Help menu to access guides and export files."""
         if files:
             # Optimization: Use a set for O(1) duplicate checks instead of O(N) tuple lookups in a loop
             current_files = set(self.files_listbox.get(0, tk.END))
+            new_files = []
             for file in files:
                 if file not in current_files:
-                    self.files_listbox.insert(tk.END, file)
+                    new_files.append(file)
                     current_files.add(file)  # Update local set for subsequent checks
                     self.log_output(f"Added file: {os.path.basename(file)}", "info")
+
+            # Optimization: Use batch insertion to reduce IPC calls to Tcl interpreter
+            if new_files:
+                self.files_listbox.insert(tk.END, *new_files)
 
     def remove_selected(self, listbox):
         """Remove selected items from a listbox."""
@@ -1905,12 +1903,21 @@ Use Help menu to access guides and export files."""
                         self.log_output(f"Optimizing: Pre-resizing source image to {max_size}x{max_size}...", "info")
                     working_img = img.resize((max_size, max_size), Image.Resampling.LANCZOS)
 
-                # Create each size with the selected shape
-                for size_str in selected_sizes:
-                    size = int(size_str.split('x')[0])
+                # Optimization: Sort sizes descending for progressive resizing
+                # Resizing from a smaller image is much faster than from the original large image
+                sizes_ints = sorted([int(s.split('x')[0]) for s in selected_sizes], reverse=True)
 
+                shaped_icons_map = {}
+                current_working_img = working_img
+
+                for size in sizes_ints:
                     # Create shaped icon (uses instance-level cache)
-                    shaped_icon = self.create_shaped_icon(working_img, shape_key, size)
+                    # We use the smallest available larger image as source for better performance
+                    shaped_icon = self.create_shaped_icon(current_working_img, shape_key, size)
+                    shaped_icons_map[size] = shaped_icon
+
+                    # Update current_working_img for progressive resizing of next smaller size
+                    current_working_img = shaped_icon
 
                     # Save as ICO
                     ico_path = os.path.join(output_dir, f"{base_name}_{shape_key}_{size}x{size}.ico")
@@ -1923,8 +1930,8 @@ Use Help menu to access guides and export files."""
                 # Create multi-size ICO with shape
                 multi_ico_path = os.path.join(output_dir, f"{base_name}_{shape_key}_multi.ico")
 
-                # Use cached icons for multi-size ICO (already cached by create_shaped_icon)
-                shaped_icons = [self.create_shaped_icon(working_img, shape_key, s) for s in sizes]
+                # Use already created icons for multi-size ICO
+                shaped_icons = [shaped_icons_map[s] for s in sorted(sizes_ints)]
 
                 if shaped_icons:
                     shaped_icons[0].save(multi_ico_path, format='ICO',
@@ -2049,8 +2056,31 @@ Use Help menu to access guides and export files."""
             self.search_entry.delete(0, tk.END)
             self.search_entry.insert(0, directory)
 
+    def _iter_icons(self, directory, extensions, limit):
+        """Efficiently yield icon files using recursive os.scandir to avoid reading large directories at once."""
+        count = 0
+        try:
+            with os.scandir(directory) as it:
+                for entry in it:
+                    if count >= limit:
+                        return
+                    if entry.is_file():
+                        if entry.name.lower().endswith(extensions):
+                            yield Path(entry.path)
+                            count += 1
+                    elif entry.is_dir():
+                        # Recursively search subdirectories
+                        for sub_path in self._iter_icons(entry.path, extensions, limit - count):
+                            yield sub_path
+                            count += 1
+                            if count >= limit:
+                                return
+        except (PermissionError, OSError):
+            # Skip directories we can't access
+            pass
+
     def search_icons(self):
-        """Search for icon files in the specified directory using an efficient single-pass traversal."""
+        """Search for icon files in the specified directory using an optimized recursive scanner."""
         search_dir = self.search_entry.get().strip()
         # Handle placeholder
         if search_dir == "Directory to search for icons...":
@@ -2067,22 +2097,13 @@ Use Help menu to access guides and export files."""
         # Hide empty state label
         self.empty_icons_label.place_forget()
 
-        # Optimization: Use single-pass os.walk and limit results for better performance
-        # This is significantly faster than multiple rglob calls on large directory trees
-        icon_files = []
+        # Optimization: Use recursive os.scandir generator to avoid list overhead and reading entire large directories
         extensions = ('.ico', '.png', '.jpg', '.jpeg', '.bmp')
         limit = 100  # Reasonable limit to keep the UI responsive
 
-        found_count = 0
-        for root, dirs, files in os.walk(search_dir):
-            for file in files:
-                if file.lower().endswith(extensions):
-                    icon_files.append(Path(root) / file)
-                    found_count += 1
-                    if found_count >= limit:
-                        break
-            if found_count >= limit:
-                break
+        # Use the generator to find icons up to the limit
+        icon_files = list(self._iter_icons(search_dir, extensions, limit))
+        found_count = len(icon_files)
 
         if found_count == 0:
             self.empty_icons_label.config(text="❌ No icons found in this directory.")
