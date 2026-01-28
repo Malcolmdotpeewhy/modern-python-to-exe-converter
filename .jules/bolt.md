@@ -20,3 +20,14 @@
 2. Implement batching for high-frequency UI updates like log outputs.
 3. Cache expensive-to-create resources like image masks.
 4. Use O(1) data structures (sets) for membership checks in loops.
+
+## 2026-01-28 - Targeted Performance Optimizations
+
+**Learning:** Significant performance gains in Tkinter applications can be achieved by minimizing IPC overhead between Python and the Tcl interpreter (e.g., batching listbox insertions) and by caching UI configurations (styles/sizes) that are otherwise recreated on every widget creation. Additionally, progressive resizing in image processing pipelines reduces the computational load of expensive filters like LANCZOS by operating on smaller intermediate images.
+
+**Action:**
+1. Use `*args` for batch insertion in Tkinter widgets (`listbox.insert(tk.END, *items)`).
+2. Cache static and semi-static UI configurations in instance attributes.
+3. Implement progressive resizing (sorting sizes descending) when generating multiple image variants.
+4. Use dynamic batching for thread-safe logging to maintain UI responsiveness under load.
+5. Use `os.scandir` with recursive generators for faster and more controllable filesystem traversal.
