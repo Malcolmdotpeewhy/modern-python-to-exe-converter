@@ -86,11 +86,6 @@ class ModernPy2ExeConverter:
         # Cache for mousewheel scroll targets to improve performance
         self._scroll_target_cache = {}
 
-        # Caches for icon generation to improve performance
-        self.shaped_icons_cache = {}
-        self._mask_cache = {}
-        self._pyinstaller_version = None
-
         # Default directories (Desktop)
         desktop_path = os.path.join(os.path.expanduser("~"), "Desktop")
         self.default_settings = {
@@ -106,6 +101,11 @@ class ModernPy2ExeConverter:
 
         # Load user settings
         self.load_settings()
+
+        # Caches for icon generation to improve performance
+        self.shaped_icons_cache = {}
+        self._mask_cache = {}
+        self._pyinstaller_version = None
 
         # Icon shape options (all with rounded corners)
         self.icon_shapes = {
@@ -304,6 +304,47 @@ class ModernPy2ExeConverter:
         # Initialize color scheme based on selected theme
         self.init_color_scheme()
 
+        # Initialize button styles and sizes cache
+        self.BUTTON_STYLES = {}
+        self.BUTTON_SIZES = {}
+        self._update_button_config()
+
+    def _update_button_config(self):
+        """Update the cached button styles and sizes based on current theme and font size."""
+        self.BUTTON_STYLES = {
+            'default': {
+                'bg': self.colors['card'],
+                'hover': self.colors['surface'],
+                'fg': self.colors['fg']
+            },
+            'primary': {
+                'bg': self.colors['accent'],
+                'hover': self.colors['accent_hover'],
+                'fg': 'white'
+            },
+            'success': {
+                'bg': self.colors['success'],
+                'hover': '#16a34a',
+                'fg': 'white'
+            },
+            'warning': {
+                'bg': self.colors['warning'],
+                'hover': '#d97706',
+                'fg': 'white'
+            },
+            'danger': {
+                'bg': self.colors['error'],
+                'hover': '#dc2626',
+                'fg': 'white'
+            }
+        }
+
+        base_size = max(9, int(self.default_settings.get('font_size', 10)))
+        self.BUTTON_SIZES = {
+            'normal': {'font': ('Segoe UI Semibold', base_size), 'pady': 8, 'padx': 20},
+            'large': {'font': ('Segoe UI Semibold', base_size + 2), 'pady': 12, 'padx': 30}
+        }
+
     def load_settings(self):
         """Load user settings from config file."""
         try:
@@ -348,6 +389,9 @@ class ModernPy2ExeConverter:
         if theme_name in self.available_themes or theme_name == 'custom':
             self.default_settings['theme'] = theme_name
             self.init_color_scheme()
+
+            # Update button configuration for the new theme
+            self._update_button_config()
 
             # Update root window background
             self.root.configure(bg=self.colors['bg'])
@@ -405,13 +449,20 @@ class ModernPy2ExeConverter:
         style.theme_use('clam')
 
         self.base_font_size = max(9, int(self.default_settings.get('font_size', 10)))
-        default_font = tkfont.nametofont("TkDefaultFont")
-        default_font.configure(family="Segoe UI", size=self.base_font_size)
-        text_font = tkfont.nametofont("TkTextFont")
-        text_font.configure(family="Segoe UI", size=self.base_font_size)
-        fixed_font = tkfont.nametofont("TkFixedFont")
-        fixed_font.configure(family="Cascadia Code", size=max(self.base_font_size - 1, 9))
-        self.mono_font = (fixed_font.cget("family"), fixed_font.cget("size"))
+
+        # Optimization: Cache standard fonts to avoid repeated lookups
+        if not hasattr(self, '_standard_fonts'):
+            self._standard_fonts = {
+                'default': tkfont.nametofont("TkDefaultFont"),
+                'text': tkfont.nametofont("TkTextFont"),
+                'fixed': tkfont.nametofont("TkFixedFont")
+            }
+
+        self._standard_fonts['default'].configure(family="Segoe UI", size=self.base_font_size)
+        self._standard_fonts['text'].configure(family="Segoe UI", size=self.base_font_size)
+        self._standard_fonts['fixed'].configure(family="Cascadia Code", size=max(self.base_font_size - 1, 9))
+
+        self.mono_font = (self._standard_fonts['fixed'].cget("family"), self._standard_fonts['fixed'].cget("size"))
         
         # Configure enhanced styles
         style.configure('TNotebook', 
@@ -1182,42 +1233,9 @@ Use Help menu to access guides and export files."""
             self.log_output(f"Failed to copy log: {e}", "error")
 
     def create_modern_button(self, parent, text, command, side, style='default', size='normal'):
-        """Create a modern styled button with enhanced appearance."""
-        styles = {
-            'default': {
-                'bg': self.colors['card'],
-                'hover': self.colors['surface'],
-                'fg': self.colors['fg']
-            },
-            'primary': {
-                'bg': self.colors['accent'],
-                'hover': self.colors['accent_hover'],
-                'fg': 'white'
-            },
-            'success': {
-                'bg': self.colors['success'],
-                'hover': '#16a34a',
-                'fg': 'white'
-            },
-            'warning': {
-                'bg': self.colors['warning'],
-                'hover': '#d97706',
-                'fg': 'white'
-            },
-            'danger': {
-                'bg': self.colors['error'],
-                'hover': '#dc2626',
-                'fg': 'white'
-            }
-        }
-        
-        sizes = {
-            'normal': {'font': ('Segoe UI Semibold', self.base_font_size), 'pady': 8, 'padx': 20},
-            'large': {'font': ('Segoe UI Semibold', self.base_font_size + 2), 'pady': 12, 'padx': 30}
-        }
-
-        style_config = styles.get(style, styles['default'])
-        size_config = sizes.get(size, sizes['normal'])
+        """Create a modern styled button with enhanced appearance using cached configurations."""
+        style_config = self.BUTTON_STYLES.get(style, self.BUTTON_STYLES['default'])
+        size_config = self.BUTTON_SIZES.get(size, self.BUTTON_SIZES['normal'])
 
         btn = tk.Button(parent,
                        text=text,
@@ -1281,7 +1299,7 @@ Use Help menu to access guides and export files."""
 
     # File and directory selection methods
     def select_files(self):
-        """Select multiple Python files to convert with O(1) duplicate checks."""
+        """Select multiple Python files to convert with O(1) duplicate checks and batch insertion."""
         files = filedialog.askopenfilenames(
             filetypes=[("Python Files", "*.py"), ("All files", "*.*")],
             title="Select Python Files to Convert"
@@ -1289,11 +1307,16 @@ Use Help menu to access guides and export files."""
         if files:
             # Optimization: Use a set for O(1) duplicate checks instead of O(N) tuple lookups in a loop
             current_files = set(self.files_listbox.get(0, tk.END))
+            new_files = []
             for file in files:
                 if file not in current_files:
-                    self.files_listbox.insert(tk.END, file)
+                    new_files.append(file)
                     current_files.add(file)  # Update local set for subsequent checks
                     self.log_output(f"Added file: {os.path.basename(file)}", "info")
+
+            # Optimization: Batch insert all new files at once to reduce IPC overhead
+            if new_files:
+                self.files_listbox.insert(tk.END, *new_files)
 
     def remove_selected(self, listbox):
         """Remove selected items from a listbox."""
@@ -1905,12 +1928,26 @@ Use Help menu to access guides and export files."""
                         self.log_output(f"Optimizing: Pre-resizing source image to {max_size}x{max_size}...", "info")
                     working_img = img.resize((max_size, max_size), Image.Resampling.LANCZOS)
 
-                # Create each size with the selected shape
-                for size_str in selected_sizes:
-                    size = int(size_str.split('x')[0])
+                # Optimization: Sort sizes descending and use progressive resizing
+                # This significantly reduces the computational load of LANCZOS filtering.
+                # We use unmasked images as sources for resizing to avoid edge artifacts.
+                sorted_sizes = sorted(sizes, reverse=True)
 
-                    # Create shaped icon (uses instance-level cache)
-                    shaped_icon = self.create_shaped_icon(working_img, shape_key, size)
+                # Dictionary to store shaped icons by size
+                shaped_icons_by_size = {}
+
+                # Source for the next resize (initially the working_img)
+                unmasked_source = working_img
+
+                # Create each size with the selected shape
+                for size in sorted_sizes:
+                    # Progressively resize the unmasked source for better performance
+                    if unmasked_source.width > size:
+                        unmasked_source = unmasked_source.resize((size, size), Image.Resampling.LANCZOS)
+
+                    # Create shaped icon (applies mask to the already-resized unmasked source)
+                    shaped_icon = self.create_shaped_icon(unmasked_source, shape_key, size)
+                    shaped_icons_by_size[size] = shaped_icon
 
                     # Save as ICO
                     ico_path = os.path.join(output_dir, f"{base_name}_{shape_key}_{size}x{size}.ico")
@@ -1923,8 +1960,8 @@ Use Help menu to access guides and export files."""
                 # Create multi-size ICO with shape
                 multi_ico_path = os.path.join(output_dir, f"{base_name}_{shape_key}_multi.ico")
 
-                # Use cached icons for multi-size ICO (already cached by create_shaped_icon)
-                shaped_icons = [self.create_shaped_icon(working_img, shape_key, s) for s in sizes]
+                # Use already created icons for multi-size ICO
+                shaped_icons = [shaped_icons_by_size[s] for s in sizes]
 
                 if shaped_icons:
                     shaped_icons[0].save(multi_ico_path, format='ICO',
@@ -2049,6 +2086,19 @@ Use Help menu to access guides and export files."""
             self.search_entry.delete(0, tk.END)
             self.search_entry.insert(0, directory)
 
+    def _iter_icons(self, path, extensions):
+        """Recursive generator for icons using os.scandir for better performance."""
+        try:
+            with os.scandir(path) as it:
+                for entry in it:
+                    if entry.is_file():
+                        if entry.name.lower().endswith(extensions):
+                            yield Path(entry.path)
+                    elif entry.is_dir():
+                        yield from self._iter_icons(entry.path, extensions)
+        except PermissionError:
+            pass
+
     def search_icons(self):
         """Search for icon files in the specified directory using an efficient single-pass traversal."""
         search_dir = self.search_entry.get().strip()
@@ -2067,20 +2117,16 @@ Use Help menu to access guides and export files."""
         # Hide empty state label
         self.empty_icons_label.place_forget()
 
-        # Optimization: Use single-pass os.walk and limit results for better performance
-        # This is significantly faster than multiple rglob calls on large directory trees
+        # Optimization: Use os.scandir generator and limit results for better performance
+        # os.scandir is faster than os.walk and the generator allows immediate early exit
         icon_files = []
         extensions = ('.ico', '.png', '.jpg', '.jpeg', '.bmp')
         limit = 100  # Reasonable limit to keep the UI responsive
 
         found_count = 0
-        for root, dirs, files in os.walk(search_dir):
-            for file in files:
-                if file.lower().endswith(extensions):
-                    icon_files.append(Path(root) / file)
-                    found_count += 1
-                    if found_count >= limit:
-                        break
+        for icon_path in self._iter_icons(search_dir, extensions):
+            icon_files.append(icon_path)
+            found_count += 1
             if found_count >= limit:
                 break
 
