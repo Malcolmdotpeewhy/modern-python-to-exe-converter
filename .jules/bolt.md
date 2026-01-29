@@ -20,3 +20,9 @@
 2. Implement batching for high-frequency UI updates like log outputs.
 3. Cache expensive-to-create resources like image masks.
 4. Use O(1) data structures (sets) for membership checks in loops.
+
+## 2025-05-18 - Initialization Order and UI Caching
+
+**Learning:** When implementing UI component caching that depends on application settings (like font size or themes), the initialization order in the constructor is critical. Calling theme setup methods before settings are fully initialized will cause AttributeErrors. Additionally, progressive image resizing should use unmasked sources to avoid anti-aliasing artifacts on transparency edges.
+
+**Action:** Always initialize configuration dictionaries (like `self.default_settings`) at the very beginning of `__init__` before calling any methods that might trigger UI configuration or caching. For progressive resizing, maintain a raw version of the image for downsampling and apply effects (like masks) separately to each result.
