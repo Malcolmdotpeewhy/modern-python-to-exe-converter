@@ -91,6 +91,10 @@ class ModernPy2ExeConverter:
         self._mask_cache = {}
         self._pyinstaller_version = None
 
+        # Static button configuration caches
+        self.BUTTON_STYLES = {}
+        self.BUTTON_SIZES = {}
+
         # Default directories (Desktop)
         desktop_path = os.path.join(os.path.expanduser("~"), "Desktop")
         self.default_settings = {
@@ -399,6 +403,41 @@ class ModernPy2ExeConverter:
         if self.default_settings.get('theme') == 'custom':
             self.apply_theme('custom')
 
+    def _update_button_config(self):
+        """Update static button configuration caches based on current theme and font size."""
+        self.BUTTON_STYLES = {
+            'default': {
+                'bg': self.colors['card'],
+                'hover': self.colors['surface'],
+                'fg': self.colors['fg']
+            },
+            'primary': {
+                'bg': self.colors['accent'],
+                'hover': self.colors['accent_hover'],
+                'fg': 'white'
+            },
+            'success': {
+                'bg': self.colors['success'],
+                'hover': '#16a34a',
+                'fg': 'white'
+            },
+            'warning': {
+                'bg': self.colors['warning'],
+                'hover': '#d97706',
+                'fg': 'white'
+            },
+            'danger': {
+                'bg': self.colors['error'],
+                'hover': '#dc2626',
+                'fg': 'white'
+            }
+        }
+
+        self.BUTTON_SIZES = {
+            'normal': {'font': self.font_semibold, 'pady': 8, 'padx': 20},
+            'large': {'font': self.font_large_semibold, 'pady': 12, 'padx': 30}
+        }
+
     def setup_styles(self):
         """Configure modern ttk styles with enhanced appearance."""
         style = ttk.Style()
@@ -413,6 +452,16 @@ class ModernPy2ExeConverter:
         fixed_font.configure(family="Cascadia Code", size=max(self.base_font_size - 1, 9))
         self.mono_font = (fixed_font.cget("family"), fixed_font.cget("size"))
         
+        # Performance Optimization: Pre-calculate and cache font tuples to avoid redundant allocations
+        self.font_normal = ("Segoe UI", self.base_font_size)
+        self.font_normal_small = ("Segoe UI", self.base_font_size - 1)
+        self.font_normal_plus = ("Segoe UI", self.base_font_size + 1)
+        self.font_semibold = ("Segoe UI Semibold", self.base_font_size)
+        self.font_header = ("Segoe UI Semibold", self.base_font_size + 1)
+        self.font_large = ("Segoe UI", self.base_font_size + 2)
+        self.font_large_semibold = ("Segoe UI Semibold", self.base_font_size + 2)
+        self.font_title = ("Segoe UI", self.base_font_size + 6)
+
         # Configure enhanced styles
         style.configure('TNotebook', 
                        background=self.colors['bg'],
@@ -423,7 +472,7 @@ class ModernPy2ExeConverter:
                        padding=[22, 10],
                        focuscolor='none',
                        borderwidth=0,
-                       font=('Segoe UI Semibold', self.base_font_size))
+                       font=self.font_semibold)
         style.map('TNotebook.Tab',
                  background=[('selected', self.colors['accent']),
                             ('active', self.colors['accent_hover'])],
@@ -439,11 +488,11 @@ class ModernPy2ExeConverter:
         style.configure('TLabelframe.Label',
                        background=self.colors['surface'],
                        foreground=self.colors['fg'],
-                       font=('Segoe UI Semibold', self.base_font_size))
+                       font=self.font_semibold)
         style.configure('TLabel', 
                        background=self.colors['surface'],
                        foreground=self.colors['fg'],
-                       font=('Segoe UI', self.base_font_size))
+                       font=self.font_normal)
         style.configure('TCombobox',
                        fieldbackground=self.colors['card'],
                        background=self.colors['surface'],
@@ -466,6 +515,9 @@ class ModernPy2ExeConverter:
                        borderwidth=0,
                        lightcolor=self.colors['accent'],
                        darkcolor=self.colors['accent'])
+
+        # Update button configurations for current theme/font size
+        self._update_button_config()
 
     def apply_visual_effects(self):
         """Apply visual effects to enhance the modern appearance."""
@@ -544,7 +596,7 @@ class ModernPy2ExeConverter:
         welcome_text = tk.Text(header_frame, height=4, bg=self.colors['card'], 
                               fg=self.colors['fg'], wrap=tk.WORD, 
                               borderwidth=0, highlightthickness=0,
-                              font=('Segoe UI', self.base_font_size + 2))
+                              font=self.font_large)
         welcome_text.pack(fill='x', padx=15, pady=15)
 
         welcome_text.insert('1.0',
@@ -592,18 +644,18 @@ class ModernPy2ExeConverter:
 
             emoji_label = tk.Label(header_frame, text=emoji, 
                                   bg=self.colors['card'], fg=self.colors['fg'],
-                                  font=('Segoe UI', self.base_font_size + 6))
+                                  font=self.font_title)
             emoji_label.pack(side='left')
 
             title_label = tk.Label(header_frame, text=title,
                                   bg=self.colors['card'], fg=self.colors['accent'],
-                                  font=('Segoe UI Semibold', self.base_font_size + 1))
+                                  font=self.font_header)
             title_label.pack(side='left', padx=(10, 0))
 
             # Feature description
             desc_label = tk.Label(feature_card, text=description,
                                  bg=self.colors['card'], fg=self.colors['fg'],
-                                 font=('Segoe UI', self.base_font_size), wraplength=250,
+                                 font=self.font_normal, wraplength=250,
                                  justify='left')
             desc_label.pack(fill='x', padx=10, pady=(0, 10))
 
@@ -632,7 +684,7 @@ class ModernPy2ExeConverter:
             
             step_label = tk.Label(step_frame, text=step,
                                  bg=self.colors['card'], fg=self.colors['fg'],
-                                 font=('Segoe UI', self.base_font_size + 1), anchor='w')
+                                 font=self.font_normal_plus, anchor='w')
             step_label.pack(fill='x', padx=15, pady=8)
 
     def create_tips_section(self, parent):
@@ -660,7 +712,7 @@ class ModernPy2ExeConverter:
             
             tip_label = tk.Label(tip_frame, text=tip,
                                 bg=self.colors['card'], fg=self.colors['fg'],
-                                font=('Segoe UI', self.base_font_size), anchor='w', wraplength=800)
+                                font=self.font_normal, anchor='w', wraplength=800)
             tip_label.pack(fill='x', padx=15, pady=8)
 
     def create_version_info_section(self, parent):
@@ -833,7 +885,7 @@ Use Help menu to access guides and export files."""
                                        highlightthickness=1,
                                        highlightbackground=self.colors['border'],
                                        highlightcolor=self.colors['accent'],
-                                       font=('Segoe UI', self.base_font_size))
+                                       font=self.font_normal)
         self.files_listbox.pack(side='left', fill='both', expand=True)
 
         files_scrollbar = ttk.Scrollbar(listbox_frame, orient='vertical')
@@ -912,7 +964,7 @@ Use Help menu to access guides and export files."""
                                     highlightthickness=1,
                                     highlightbackground=self.colors['border'],
                                     highlightcolor=self.colors['accent'],
-                                    font=('Segoe UI', self.base_font_size + 1))
+                                    font=self.font_normal_plus)
         self.output_entry.pack(side='left', fill='x', expand=True, padx=(0, 15))
         self._add_placeholder(self.output_entry, "Path to output directory...")
 
@@ -957,7 +1009,7 @@ Use Help menu to access guides and export files."""
                                   highlightthickness=1,
                                   highlightbackground=self.colors['border'],
                                   highlightcolor=self.colors['accent'],
-                                  font=('Segoe UI', self.base_font_size + 1))
+                                  font=self.font_normal_plus)
         self.icon_entry.pack(side='left', fill='x', expand=True, padx=15)
         self._add_placeholder(self.icon_entry, "Path to .ico file...")
 
@@ -978,7 +1030,7 @@ Use Help menu to access guides and export files."""
                              text="📦 Hidden Imports (Only add if auto-detection fails):",
                              bg=self.colors['surface'],
                              fg=self.colors['fg'],
-                             font=('Segoe UI', self.base_font_size))
+                             font=self.font_normal)
         info_label.pack(anchor='w')
         
         # Helper text
@@ -986,7 +1038,7 @@ Use Help menu to access guides and export files."""
                               text="💡 PyInstaller automatically detects most dependencies. Only add modules here if you encounter import errors.",
                               bg=self.colors['surface'],
                               fg=self.colors['border'],
-                              font=('Segoe UI', self.base_font_size - 1),
+                              font=self.font_normal_small,
                               wraplength=600)
         helper_text.pack(anchor='w', pady=(0, 5))
         
@@ -1003,7 +1055,7 @@ Use Help menu to access guides and export files."""
                                         highlightthickness=1,
                                         highlightbackground=self.colors['border'],
                                         highlightcolor=self.colors['accent'],
-                                        font=('Segoe UI', self.base_font_size))
+                                        font=self.font_normal)
         self.hidden_listbox.pack(side='left', fill='both', expand=True)
 
         hidden_scrollbar = ttk.Scrollbar(hidden_container, orient='vertical')
@@ -1057,7 +1109,7 @@ Use Help menu to access guides and export files."""
                                     text="Ready to convert",
                                     bg=self.colors['surface'],
                                     fg=self.colors['fg'],
-                                    font=('Segoe UI', self.base_font_size + 1))
+                                    font=self.font_normal_plus)
         self.status_label.pack(pady=10)
 
     def create_output_log(self, parent):
@@ -1182,42 +1234,9 @@ Use Help menu to access guides and export files."""
             self.log_output(f"Failed to copy log: {e}", "error")
 
     def create_modern_button(self, parent, text, command, side, style='default', size='normal'):
-        """Create a modern styled button with enhanced appearance."""
-        styles = {
-            'default': {
-                'bg': self.colors['card'],
-                'hover': self.colors['surface'],
-                'fg': self.colors['fg']
-            },
-            'primary': {
-                'bg': self.colors['accent'],
-                'hover': self.colors['accent_hover'],
-                'fg': 'white'
-            },
-            'success': {
-                'bg': self.colors['success'],
-                'hover': '#16a34a',
-                'fg': 'white'
-            },
-            'warning': {
-                'bg': self.colors['warning'],
-                'hover': '#d97706',
-                'fg': 'white'
-            },
-            'danger': {
-                'bg': self.colors['error'],
-                'hover': '#dc2626',
-                'fg': 'white'
-            }
-        }
-        
-        sizes = {
-            'normal': {'font': ('Segoe UI Semibold', self.base_font_size), 'pady': 8, 'padx': 20},
-            'large': {'font': ('Segoe UI Semibold', self.base_font_size + 2), 'pady': 12, 'padx': 30}
-        }
-
-        style_config = styles.get(style, styles['default'])
-        size_config = sizes.get(size, sizes['normal'])
+        """Create a modern styled button with enhanced appearance using cached configurations."""
+        style_config = self.BUTTON_STYLES.get(style, self.BUTTON_STYLES['default'])
+        size_config = self.BUTTON_SIZES.get(size, self.BUTTON_SIZES['normal'])
 
         btn = tk.Button(parent,
                        text=text,
@@ -1264,7 +1283,7 @@ Use Help menu to access guides and export files."""
                            selectcolor=self.colors['card'],
                            activebackground=self.colors['surface'],
                            activeforeground=self.colors['fg'],
-                           font=('Segoe UI', self.base_font_size),
+                           font=self.font_normal,
                            borderwidth=0,
                            highlightthickness=2,
                            highlightcolor=self.colors['accent'],
@@ -1281,19 +1300,24 @@ Use Help menu to access guides and export files."""
 
     # File and directory selection methods
     def select_files(self):
-        """Select multiple Python files to convert with O(1) duplicate checks."""
+        """Select multiple Python files to convert with O(1) duplicate checks and batch insertion."""
         files = filedialog.askopenfilenames(
             filetypes=[("Python Files", "*.py"), ("All files", "*.*")],
             title="Select Python Files to Convert"
         )
         if files:
-            # Optimization: Use a set for O(1) duplicate checks instead of O(N) tuple lookups in a loop
+            # Optimization: Use a set for O(1) duplicate checks
             current_files = set(self.files_listbox.get(0, tk.END))
+            new_files = []
             for file in files:
                 if file not in current_files:
-                    self.files_listbox.insert(tk.END, file)
-                    current_files.add(file)  # Update local set for subsequent checks
+                    new_files.append(file)
+                    current_files.add(file)
                     self.log_output(f"Added file: {os.path.basename(file)}", "info")
+
+            # Performance Optimization: Batch insertion to reduce IPC overhead between Python and Tcl
+            if new_files:
+                self.files_listbox.insert(tk.END, *new_files)
 
     def remove_selected(self, listbox):
         """Remove selected items from a listbox."""
@@ -1344,7 +1368,7 @@ Use Help menu to access guides and export files."""
         # Module name entry
         tk.Label(dialog, text="Module name:", 
                 bg=self.colors['surface'], fg=self.colors['fg'],
-                font=('Segoe UI', self.base_font_size + 1)).pack(pady=10)
+                font=self.font_normal_plus).pack(pady=10)
         
         entry_module = tk.Entry(dialog, width=40,
                                bg=self.colors['card'],
@@ -1353,7 +1377,7 @@ Use Help menu to access guides and export files."""
                                highlightthickness=1,
                                highlightbackground=self.colors['border'],
                                highlightcolor=self.colors['accent'],
-                               font=('Segoe UI', self.base_font_size + 1))
+                               font=self.font_normal_plus)
         entry_module.pack(pady=5)
 
         # Buttons
@@ -1655,7 +1679,7 @@ Use Help menu to access guides and export files."""
                                           highlightthickness=1,
                                           highlightbackground=self.colors['border'],
                                           highlightcolor=self.colors['accent'],
-                                          font=('Segoe UI', self.base_font_size + 1))
+                                          font=self.font_normal_plus)
         self.source_image_entry.pack(side='left', fill='x', expand=True, padx=15)
         self._add_placeholder(self.source_image_entry, "Path to source image (PNG, JPG)...")
 
@@ -1742,7 +1766,7 @@ Use Help menu to access guides and export files."""
                                     highlightthickness=1,
                                     highlightbackground=self.colors['border'],
                                     highlightcolor=self.colors['accent'],
-                                    font=('Segoe UI', self.base_font_size + 1))
+                                    font=self.font_normal_plus)
         self.search_entry.pack(side='left', fill='x', expand=True, padx=15)
         self._add_placeholder(self.search_entry, "Directory to search for icons...")
 
@@ -1767,7 +1791,7 @@ Use Help menu to access guides and export files."""
                                          text="🔍 Search for icons to see them here!",
                                          bg=self.colors['surface'],
                                          fg=self.colors['border'],
-                                         font=('Segoe UI', self.base_font_size + 2))
+                                         font=self.font_large)
         self.empty_icons_label.place(relx=0.5, rely=0.5, anchor='center')
 
         # Create canvas for icon grid
@@ -1797,7 +1821,7 @@ Use Help menu to access guides and export files."""
                                            text="No icon selected",
                                            bg=self.colors['surface'],
                                            fg=self.colors['fg'],
-                                           font=('Segoe UI', self.base_font_size + 1))
+                                           font=self.font_normal_plus)
         self.selected_icon_label.pack(side='left')
 
         self.create_modern_button(info_frame, "✅ Use Selected Icon",
@@ -1846,7 +1870,7 @@ Use Help menu to access guides and export files."""
                 # Show error in preview
                 error_label = tk.Label(self.preview_frame, text="Invalid\nImage",
                                       bg=self.colors['card'], fg=self.colors['error'],
-                                      font=('Segoe UI', self.base_font_size))
+                                      font=self.font_normal)
                 error_label.pack(expand=True)
 
     def create_icon_from_image(self):
@@ -1905,12 +1929,18 @@ Use Help menu to access guides and export files."""
                         self.log_output(f"Optimizing: Pre-resizing source image to {max_size}x{max_size}...", "info")
                     working_img = img.resize((max_size, max_size), Image.Resampling.LANCZOS)
 
-                # Create each size with the selected shape
-                for size_str in selected_sizes:
-                    size = int(size_str.split('x')[0])
+                # Performance Optimization: Sort requested sizes in descending order and use progressive resizing
+                # This reduces the computational load on the LANCZOS filter by working with smaller source images
+                sorted_sizes = sorted([int(s.split('x')[0]) for s in selected_sizes], reverse=True)
 
-                    # Create shaped icon (uses instance-level cache)
-                    shaped_icon = self.create_shaped_icon(working_img, shape_key, size)
+                # Create each size with the selected shape
+                last_img = working_img
+                for size in sorted_sizes:
+                    # Create shaped icon (uses progressive resizing by using the last resized image)
+                    shaped_icon = self.create_shaped_icon(last_img, shape_key, size)
+
+                    # Update last_img for next smaller size (progressive resizing)
+                    last_img = shaped_icon
 
                     # Save as ICO
                     ico_path = os.path.join(output_dir, f"{base_name}_{shape_key}_{size}x{size}.ico")
@@ -1924,12 +1954,18 @@ Use Help menu to access guides and export files."""
                 multi_ico_path = os.path.join(output_dir, f"{base_name}_{shape_key}_multi.ico")
 
                 # Use cached icons for multi-size ICO (already cached by create_shaped_icon)
-                shaped_icons = [self.create_shaped_icon(working_img, shape_key, s) for s in sizes]
+                # We use the same progressive pattern to hit the cache
+                shaped_icons = []
+                temp_img = working_img
+                for s in sorted_sizes:
+                    icon = self.create_shaped_icon(temp_img, shape_key, s)
+                    shaped_icons.append(icon)
+                    temp_img = icon
 
                 if shaped_icons:
                     shaped_icons[0].save(multi_ico_path, format='ICO',
                                        append_images=shaped_icons[1:] if len(shaped_icons) > 1 else [],
-                                       sizes=[(s, s) for s in sizes])
+                                       sizes=[(s, s) for s in sorted_sizes])
                     created_icons.append(multi_ico_path)
 
                     if hasattr(self, 'log_output'):
@@ -2049,6 +2085,21 @@ Use Help menu to access guides and export files."""
             self.search_entry.delete(0, tk.END)
             self.search_entry.insert(0, directory)
 
+    def _iter_icons(self, path, extensions):
+        """Recursive generator for icon files using scandir for better performance.
+        Exits immediately once the 100-icon limit is reached when used with islice.
+        """
+        try:
+            with os.scandir(path) as entries:
+                for entry in entries:
+                    if entry.is_file():
+                        if entry.name.lower().endswith(extensions):
+                            yield Path(entry.path)
+                    elif entry.is_dir():
+                        yield from self._iter_icons(entry.path, extensions)
+        except (PermissionError, OSError):
+            pass
+
     def search_icons(self):
         """Search for icon files in the specified directory using an efficient single-pass traversal."""
         search_dir = self.search_entry.get().strip()
@@ -2067,22 +2118,13 @@ Use Help menu to access guides and export files."""
         # Hide empty state label
         self.empty_icons_label.place_forget()
 
-        # Optimization: Use single-pass os.walk and limit results for better performance
-        # This is significantly faster than multiple rglob calls on large directory trees
-        icon_files = []
+        # Optimization: Use recursive os.scandir generator and islice for immediate exit
+        # This is faster than os.walk because it processes entries one by one
         extensions = ('.ico', '.png', '.jpg', '.jpeg', '.bmp')
         limit = 100  # Reasonable limit to keep the UI responsive
 
-        found_count = 0
-        for root, dirs, files in os.walk(search_dir):
-            for file in files:
-                if file.lower().endswith(extensions):
-                    icon_files.append(Path(root) / file)
-                    found_count += 1
-                    if found_count >= limit:
-                        break
-            if found_count >= limit:
-                break
+        icon_files = list(itertools.islice(self._iter_icons(search_dir, extensions), limit))
+        found_count = len(icon_files)
 
         if found_count == 0:
             self.empty_icons_label.config(text="❌ No icons found in this directory.")
@@ -2133,7 +2175,7 @@ Use Help menu to access guides and export files."""
                                          text=icon_path.name[:15] + "..." if len(icon_path.name) > 15 else icon_path.name,
                                          bg=self.colors['card'],
                                          fg=self.colors['fg'],
-                                         font=('Segoe UI', self.base_font_size - 1))
+                                         font=self.font_normal_small)
                     name_label.pack()
 
             except Exception as e:
@@ -2142,7 +2184,7 @@ Use Help menu to access guides and export files."""
                                       text="Invalid\nImage",
                                       bg=self.colors['card'],
                                       fg=self.colors['error'],
-                                      font=('Segoe UI', self.base_font_size - 1))
+                                      font=self.font_normal_small)
                 error_label.pack()
 
     def select_icon_preview(self, icon_path):
@@ -2222,7 +2264,7 @@ Use Help menu to access guides and export files."""
                                              highlightthickness=1,
                                              highlightbackground=self.colors['border'],
                                              highlightcolor=self.colors['accent'],
-                                             font=('Segoe UI', self.base_font_size + 1))
+                                             font=self.font_normal_plus)
         self.default_exe_dir_entry.pack(side='left', fill='x', expand=True, padx=(0, 10))
 
         self.create_modern_button(exe_entry_frame, "📁 Browse",
@@ -2247,7 +2289,7 @@ Use Help menu to access guides and export files."""
                                               highlightthickness=1,
                                               highlightbackground=self.colors['border'],
                                               highlightcolor=self.colors['accent'],
-                                              font=('Segoe UI', self.base_font_size + 1))
+                                              font=self.font_normal_plus)
         self.default_icon_dir_entry.pack(side='left', fill='x', expand=True, padx=(0, 10))
 
         self.create_modern_button(icon_entry_frame, "📁 Browse",
@@ -2281,7 +2323,7 @@ Use Help menu to access guides and export files."""
         self.transparency_label = tk.Label(transparency_frame, 
                                           text=f"{self.transparency_var.get():.0%}",
                                           bg=self.colors['surface'], fg=self.colors['fg'],
-                                          font=('Segoe UI', self.base_font_size))
+                                          font=self.font_normal)
         self.transparency_label.pack(side='right', padx=10)
 
         # Theme Selection (if available)
@@ -2357,7 +2399,7 @@ Use Help menu to access guides and export files."""
                                              text="💡 Settings are automatically applied when changed",
                                              bg=self.colors['surface'],
                                              fg=self.colors['fg'],
-                                             font=('Segoe UI', self.base_font_size),
+                                             font=self.font_normal,
                                              anchor='w')
         self.settings_status_label.pack(fill='x')
 
