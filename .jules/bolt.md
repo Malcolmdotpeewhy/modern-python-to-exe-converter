@@ -20,3 +20,6 @@
 2. Implement batching for high-frequency UI updates like log outputs.
 3. Cache expensive-to-create resources like image masks.
 4. Use O(1) data structures (sets) for membership checks in loops.
+## 2026-01-30 - Recursive scandir and progressive resizing
+**Learning:** Using a recursive `os.scandir` generator with `itertools.islice` allows for immediate termination of directory traversal once a result limit is reached, which is significantly faster than `os.walk` on large directory trees. Additionally, progressive resizing of images (sorting sizes descending and using the previous result as the source) reduces the computational load on expensive filters like `LANCZOS`.
+**Action:** Always prefer `os.scandir` for performance-critical directory searches and use progressive resizing for generating multiple image sizes.
