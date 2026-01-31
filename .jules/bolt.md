@@ -20,3 +20,13 @@
 2. Implement batching for high-frequency UI updates like log outputs.
 3. Cache expensive-to-create resources like image masks.
 4. Use O(1) data structures (sets) for membership checks in loops.
+
+## 2025-05-17 - Micro-optimizations in UI and Image Processing
+
+**Learning:** Redundant initialization in the constructor and constant dictionary/tuple allocations in high-frequency UI methods (like button creation) create cumulative overhead. Additionally, progressive resizing for multi-size icons (resizing from the next largest image) significantly reduces the computational load compared to always resizing from a high-resolution source.
+
+**Action:**
+1. Pre-calculate and cache font tuples and button configurations as instance attributes.
+2. Use batch insertion for list-based UI components to minimize IPC.
+3. Implement progressive resizing (largest to smallest) for multi-size image generation.
+4. Use recursive generators with `os.scandir` for more responsive and terminable directory searches.
