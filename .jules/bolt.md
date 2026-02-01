@@ -20,3 +20,9 @@
 2. Implement batching for high-frequency UI updates like log outputs.
 3. Cache expensive-to-create resources like image masks.
 4. Use O(1) data structures (sets) for membership checks in loops.
+
+## 2025-05-17 - Initialization and UI Resource Caching
+
+**Learning:** Redundant disk I/O and dictionary allocations during startup can be eliminated by consolidating initialization in setup_theme_system() and caching button/font configurations. Pre-calculating font tuples prevents hundreds of small allocations during UI construction.
+
+**Action:** Consolidate settings initialization, cache BUTTON_STYLES/BUTTON_SIZES, and pre-calculate font tuples in setup_styles().
