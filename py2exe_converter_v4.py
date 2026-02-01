@@ -2071,7 +2071,10 @@ Use Help menu to access guides and export files."""
         # This is significantly faster than multiple rglob calls on large directory trees
         icon_files = []
         extensions = ('.ico', '.png', '.jpg', '.jpeg', '.bmp')
-        limit = 100  # Reasonable limit to keep the UI responsive
+
+        # Display limit matches search limit to avoid wasted I/O
+        display_limit = 20
+        limit = display_limit
 
         found_count = 0
         for root, dirs, files in os.walk(search_dir):
@@ -2098,9 +2101,8 @@ Use Help menu to access guides and export files."""
 
         # Create grid of icon previews
         columns = 4
-        # Display a subset of found icons to maintain UI performance
-        display_limit = 20
-        for i, icon_path in enumerate(icon_files[:display_limit]):
+        # Display limit is already applied during search
+        for i, icon_path in enumerate(icon_files):
             row = i // columns
             col = i % columns
 
