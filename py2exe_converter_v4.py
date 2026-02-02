@@ -132,6 +132,9 @@ class ModernPy2ExeConverter:
             return
 
         messages_processed = 0
+        last_time = None
+        cached_timestamp = None
+
         try:
             # Optimization: Process up to 25 messages per tick to minimize UI thread overhead
             for _ in range(25):
@@ -142,9 +145,15 @@ class ModernPy2ExeConverter:
                     if messages_processed == 0:
                         self.output_text.config(state=tk.NORMAL)
 
-                    timestamp = datetime.now().strftime("%H:%M:%S")
-                    self.output_text.insert(tk.END, f"[{timestamp}] ", "timestamp")
-                    self.output_text.insert(tk.END, f"{message}\n", level)
+                    # Performance Optimization: Cache timestamp formatting within the same second
+                    curr_time = datetime.now()
+                    if cached_timestamp is None or curr_time.second != last_time.second:
+                        cached_timestamp = curr_time.strftime("%H:%M:%S")
+                        last_time = curr_time
+
+                    # Performance Optimization: Single insert call with multiple tags reduces IPC overhead
+                    # This is significantly faster than multiple insert calls for large log volumes
+                    self.output_text.insert(tk.END, f"[{cached_timestamp}] ", "timestamp", f"{message}\n", level)
 
                     messages_processed += 1
                 except queue.Empty:
@@ -1209,8 +1218,38 @@ Use Help menu to access guides and export files."""
         except Exception as e:
             self.log_output(f"Failed to copy log: {e}", "error")
 
+    # Performance Optimization: Shared event handlers to avoid creating thousands of closure objects
+    def _on_widget_enter(self, event):
+        """Shared hover enter handler."""
+        bg = getattr(event.widget, '_hover_bg', None)
+        if bg: event.widget.configure(bg=bg)
+
+    def _on_widget_leave(self, event):
+        """Shared hover leave handler."""
+        bg = getattr(event.widget, '_normal_bg', None)
+        if bg: event.widget.configure(bg=bg)
+
+    def _on_widget_focus_in(self, event):
+        """Shared focus in handler."""
+        color = getattr(event.widget, '_accent_color', None)
+        if not color: return
+
+        if isinstance(event.widget, tk.Button):
+            event.widget.configure(highlightbackground=color, highlightthickness=2)
+        elif isinstance(event.widget, tk.Checkbutton):
+            event.widget.configure(fg=color)
+
+    def _on_widget_focus_out(self, event):
+        """Shared focus out handler."""
+        if isinstance(event.widget, tk.Button):
+            color = getattr(event.widget, '_border_color', None)
+            if color: event.widget.configure(highlightbackground=color, highlightthickness=1)
+        elif isinstance(event.widget, tk.Checkbutton):
+            color = getattr(event.widget, '_normal_fg', None)
+            if color: event.widget.configure(fg=color)
+
     def create_modern_button(self, parent, text, command, side, style='default', size='normal'):
-        """Create a modern styled button using cached configurations for better performance."""
+        """Create a modern styled button using cached configurations and shared handlers."""
         # Performance Optimization: Use pre-calculated button styles and sizes
         style_config = self.BUTTON_STYLES.get(style, self.BUTTON_STYLES['default'])
         size_config = self.BUTTON_SIZES.get(size, self.BUTTON_SIZES['normal'])
@@ -1233,25 +1272,22 @@ Use Help menu to access guides and export files."""
                        relief='flat')
         btn.pack(side=side, padx=10)
 
-        # Enhanced hover effects and focus indicators
-        def on_enter(e):
-            btn.configure(bg=style_config['hover'])
-        def on_leave(e):
-            btn.configure(bg=style_config['bg'])
-        def on_focus_in(e):
-            btn.configure(highlightbackground=self.colors['accent'], highlightthickness=2)
-        def on_focus_out(e):
-            btn.configure(highlightbackground=self.colors['border'], highlightthickness=1)
+        # Performance Optimization: Store config on widget and use shared handlers
+        # This avoids creating 4 unique closure functions for every button
+        btn._hover_bg = style_config['hover']
+        btn._normal_bg = style_config['bg']
+        btn._accent_color = self.colors['accent']
+        btn._border_color = self.colors['border']
 
-        btn.bind("<Enter>", on_enter)
-        btn.bind("<Leave>", on_leave)
-        btn.bind("<FocusIn>", on_focus_in)
-        btn.bind("<FocusOut>", on_focus_out)
+        btn.bind("<Enter>", self._on_widget_enter)
+        btn.bind("<Leave>", self._on_widget_leave)
+        btn.bind("<FocusIn>", self._on_widget_focus_in)
+        btn.bind("<FocusOut>", self._on_widget_focus_out)
 
         return btn
 
     def create_modern_checkbox(self, parent, text, variable):
-        """Create a modern styled checkbox."""
+        """Create a modern styled checkbox using shared handlers for better performance."""
         cb = tk.Checkbutton(parent,
                            text=text,
                            variable=variable,
@@ -1266,13 +1302,12 @@ Use Help menu to access guides and export files."""
                            highlightcolor=self.colors['accent'],
                            cursor='hand2')
 
-        def on_focus_in(e):
-            cb.configure(fg=self.colors['accent'])
-        def on_focus_out(e):
-            cb.configure(fg=self.colors['fg'])
+        # Performance Optimization: Use shared focus handlers
+        cb._accent_color = self.colors['accent']
+        cb._normal_fg = self.colors['fg']
 
-        cb.bind("<FocusIn>", on_focus_in)
-        cb.bind("<FocusOut>", on_focus_out)
+        cb.bind("<FocusIn>", self._on_widget_focus_in)
+        cb.bind("<FocusOut>", self._on_widget_focus_out)
         return cb
 
     # File and directory selection methods
@@ -1907,15 +1942,20 @@ Use Help menu to access guides and export files."""
                 # This significantly reduces computational load by resizing from the next largest image
                 sorted_sizes = sorted(sizes, reverse=True)
                 size_to_shaped_img = {}
-                current_source = working_img
+
+                # Performance Optimization: Maintain unmasked source for resizing to prevent quality loss
+                # and redundant alpha-channel processing during progressive downscaling
+                unmasked_source = working_img
 
                 for size in sorted_sizes:
-                    # Create shaped icon (uses instance-level cache)
-                    shaped_icon = self.create_shaped_icon(current_source, shape_key, size)
-                    size_to_shaped_img[size] = shaped_icon
+                    # Resize unmasked source to current size if needed
+                    if unmasked_source.size != (size, size):
+                        unmasked_source = unmasked_source.resize((size, size), Image.Resampling.LANCZOS)
 
-                    # For next smaller size, use this one as source
-                    current_source = shaped_icon
+                    # Create shaped icon (this will return a masked copy)
+                    # Use instance-level cache which is now more efficient with target-sized images
+                    shaped_icon = self.create_shaped_icon(unmasked_source, shape_key, size)
+                    size_to_shaped_img[size] = shaped_icon
 
                     # Save as ICO
                     ico_path = os.path.join(output_dir, f"{base_name}_{shape_key}_{size}x{size}.ico")
@@ -2062,17 +2102,21 @@ Use Help menu to access guides and export files."""
         """Internal recursive generator for efficient icon discovery using os.scandir."""
         count = 0
         try:
+            # Performance Optimization: os.scandir is faster than os.listdir or os.walk
             with os.scandir(directory) as it:
                 for entry in it:
                     if count >= limit:
                         return
+
+                    # Performance Optimization: Avoid Path object creation in tight loops
+                    # Also use endswith with a tuple which is already optimized in Python
                     if entry.is_file() and entry.name.lower().endswith(extensions):
-                        yield Path(entry.path)
+                        yield entry.path
                         count += 1
                     elif entry.is_dir():
                         # Recursively search subdirectories
-                        for icon in self._iter_icons(entry.path, extensions, limit - count):
-                            yield icon
+                        for icon_path in self._iter_icons(entry.path, extensions, limit - count):
+                            yield icon_path
                             count += 1
                             if count >= limit:
                                 return
@@ -2097,9 +2141,10 @@ Use Help menu to access guides and export files."""
         # Hide empty state label
         self.empty_icons_label.place_forget()
 
-        # Performance Optimization: Use os.scandir with a recursive generator for faster traversal and immediate termination
+        # Performance Optimization: Match search limit with display limit to avoid redundant I/O
         extensions = ('.ico', '.png', '.jpg', '.jpeg', '.bmp')
-        limit = 100  # Reasonable limit to keep the UI responsive
+        display_limit = 20
+        limit = display_limit  # Only search for what we can display
 
         icon_files = list(self._iter_icons(search_dir, extensions, limit))
         found_count = len(icon_files)
@@ -2118,9 +2163,8 @@ Use Help menu to access guides and export files."""
 
         # Create grid of icon previews
         columns = 4
-        # Display a subset of found icons to maintain UI performance
-        display_limit = 20
-        for i, icon_path in enumerate(icon_files[:display_limit]):
+        # Display found icons (limited by search limit)
+        for i, icon_path in enumerate(icon_files):
             row = i // columns
             col = i % columns
 
