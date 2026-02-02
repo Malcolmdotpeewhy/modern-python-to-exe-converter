@@ -30,3 +30,13 @@
 2. Use batch insertion for list-based UI components to minimize IPC.
 3. Implement progressive resizing (largest to smallest) for multi-size image generation.
 4. Use recursive generators with `os.scandir` for more responsive and terminable directory searches.
+
+## 2025-05-18 - Advanced UI Thread and Asset Pipeline Optimizations
+
+**Learning:** Reducing IPC (Inter-Process Communication) overhead between Python and the Tcl/Tk interpreter is one of the most effective ways to speed up Tkinter applications. Consolidating multiple `insert` calls into a single call with multiple tags can yield significant performance gains for high-volume logging. Furthermore, in image processing, maintaining an unmasked source for progressive downscaling prevents cumulative artifacts and reduces the workload by keeping data in simpler formats until the final masking step.
+
+**Action:**
+1. Batch multiple `Text.insert` operations into a single call when possible.
+2. Cache formatted results (like `strftime` timestamps) within tight loops or batches.
+3. Replace widget-specific closure event handlers with shared class-level methods and widget-stored metadata to reduce memory pressure.
+4. Ensure progressive downscaling pipelines maintain unmasked sources for better quality and performance.
