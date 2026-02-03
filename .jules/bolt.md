@@ -30,3 +30,13 @@
 2. Use batch insertion for list-based UI components to minimize IPC.
 3. Implement progressive resizing (largest to smallest) for multi-size image generation.
 4. Use recursive generators with `os.scandir` for more responsive and terminable directory searches.
+
+## 2025-05-18 - Batching and Loop Invariant Optimizations
+
+**Learning:** UI responsiveness in Tkinter is heavily dependent on minimizing the number of calls to the Tcl interpreter. Combining multiple Text widget inserts into a single call with variadic arguments is significantly faster than sequential calls. Furthermore, extracting GUI property lookups (like .get() on BooleanVar) from loops in background threads reduces redundant cross-thread synchronization overhead.
+
+**Action:**
+1. Batch multiple log messages into a single Text.insert() call with segments.
+2. Hoist GUI-dependent lookups and invariant filesystem checks out of conversion loops.
+3. Use O(1) reverse mappings for frequently looked-up display strings.
+4. Maintain unmasked image sources during progressive resizing to preserve quality and avoid redundant alpha processing.

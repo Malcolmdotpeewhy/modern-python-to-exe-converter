@@ -101,6 +101,8 @@ class ModernPy2ExeConverter:
             'star': 'Star',
             'diamond': 'Diamond'
         }
+        # Performance Optimization: Pre-calculate reverse mapping for O(1) lookup
+        self.reverse_icon_shapes = {v: k for k, v in self.icon_shapes.items()}
 
         # Create the GUI
         self.setup_styles()
@@ -132,29 +134,37 @@ class ModernPy2ExeConverter:
             return
 
         messages_processed = 0
+        insert_args = []
+        last_time_str = None
+        last_time_val = None
+
         try:
             # Optimization: Process up to 25 messages per tick to minimize UI thread overhead
             for _ in range(25):
                 try:
                     message, level = self.log_queue.get_nowait()
 
-                    # Batch UI updates: Enable once per batch
-                    if messages_processed == 0:
-                        self.output_text.config(state=tk.NORMAL)
+                    # Performance Optimization: Cache timestamp within the same second
+                    now = datetime.now()
+                    if last_time_val is None or now.second != last_time_val:
+                        last_time_val = now.second
+                        last_time_str = now.strftime("%H:%M:%S")
 
-                    timestamp = datetime.now().strftime("%H:%M:%S")
-                    self.output_text.insert(tk.END, f"[{timestamp}] ", "timestamp")
-                    self.output_text.insert(tk.END, f"{message}\n", level)
-
+                    # Performance Optimization: Collect all segments for a single batch insert
+                    insert_args.extend([f"[{last_time_str}] ", "timestamp", f"{message}\n", level])
                     messages_processed += 1
                 except queue.Empty:
                     break
-        finally:
-            if messages_processed > 0:
-                # Batch UI updates: Scroll and disable once per batch
+
+            if insert_args:
+                # Batch UI updates: Enable, insert, scroll, and disable once per batch
+                # Using a single insert call with multiple segments is significantly faster in Tkinter
+                self.output_text.config(state=tk.NORMAL)
+                self.output_text.insert(tk.END, *insert_args)
                 self.output_text.see(tk.END)
                 self.output_text.config(state=tk.DISABLED)
 
+        finally:
             # Schedule next check
             self.root.after(100, self._process_log_queue)
 
@@ -1530,35 +1540,44 @@ Use Help menu to access guides and export files."""
             """Run the conversion process in a separate thread."""
             successful_conversions = 0
 
+            # Performance Optimization: Extract loop invariants before starting the conversion loop
+            # This avoids redundant GUI lookups and filesystem checks for each file
+            is_onefile = self.onefile_var.get()
+            is_noconsole = self.noconsole_var.get()
+            is_debug = self.debug_var.get()
+
+            icon_file = self.icon_entry.get().strip()
+            use_icon = icon_file and os.path.exists(icon_file)
+
+            hidden_imports = list(self.hidden_listbox.get(0, tk.END))
+
             try:
                 # Create output directory if it doesn't exist
                 os.makedirs(output_dir, exist_ok=True)
 
+                # Optimization: Update UI state once before starting the batch
+                self.root.after(0, lambda: self.convert_btn.config(text="⏳ Converting..."))
+
                 for i, file in enumerate(files):
                     try:
-                        # Optimization: Use root.after for thread-safe UI updates from background thread
-                        self.root.after(0, lambda: self.convert_btn.config(text="⏳ Converting..."))
-
                         self.log_output(f"Converting {os.path.basename(file)}...", "info")
 
                         # Build PyInstaller command
                         cmd = ["pyinstaller"]
 
                         # Add options
-                        if self.onefile_var.get():
+                        if is_onefile:
                             cmd.append("--onefile")
-                        if self.noconsole_var.get():
+                        if is_noconsole:
                             cmd.append("--noconsole")
-                        if self.debug_var.get():
+                        if is_debug:
                             cmd.append("--debug")
 
                         # Add icon
-                        icon_file = self.icon_entry.get().strip()
-                        if icon_file and os.path.exists(icon_file):
+                        if use_icon:
                             cmd.extend(["--icon", icon_file])
 
                         # Add hidden imports
-                        hidden_imports = self.hidden_listbox.get(0, tk.END)
                         for hidden in hidden_imports:
                             cmd.extend(["--hidden-import", hidden])
 
@@ -1862,14 +1881,8 @@ Use Help menu to access guides and export files."""
 
         # Get selected shape
         shape_display = self.shape_var.get()
-        shape_key = None
-        for key, display in self.icon_shapes.items():
-            if display == shape_display:
-                shape_key = key
-                break
-
-        if not shape_key:
-            shape_key = 'square'
+        # Performance Optimization: Use O(1) reverse mapping instead of linear search
+        shape_key = self.reverse_icon_shapes.get(shape_display, 'square')
 
         # Ask for output directory - use default if available
         default_dir = self.default_settings.get('default_icon_output_dir',
@@ -1907,15 +1920,20 @@ Use Help menu to access guides and export files."""
                 # This significantly reduces computational load by resizing from the next largest image
                 sorted_sizes = sorted(sizes, reverse=True)
                 size_to_shaped_img = {}
-                current_source = working_img
+
+                # Performance Optimization: Maintain an unmasked source for progressive resizing
+                # This prevents quality loss from resizing alpha-masked images multiple times
+                current_unmasked = working_img
 
                 for size in sorted_sizes:
-                    # Create shaped icon (uses instance-level cache)
-                    shaped_icon = self.create_shaped_icon(current_source, shape_key, size)
-                    size_to_shaped_img[size] = shaped_icon
+                    # Resize unmasked source to target size if it's not already correct
+                    if current_unmasked.size != (size, size):
+                        current_unmasked = current_unmasked.resize((size, size), Image.Resampling.LANCZOS)
 
-                    # For next smaller size, use this one as source
-                    current_source = shaped_icon
+                    # Create shaped icon (uses instance-level cache)
+                    # Since current_unmasked is already (size, size), create_shaped_icon will skip redundant resize
+                    shaped_icon = self.create_shaped_icon(current_unmasked, shape_key, size)
+                    size_to_shaped_img[size] = shaped_icon
 
                     # Save as ICO
                     ico_path = os.path.join(output_dir, f"{base_name}_{shape_key}_{size}x{size}.ico")
@@ -2059,7 +2077,9 @@ Use Help menu to access guides and export files."""
             self.search_entry.insert(0, directory)
 
     def _iter_icons(self, directory, extensions, limit):
-        """Internal recursive generator for efficient icon discovery using os.scandir."""
+        """Internal recursive generator for efficient icon discovery using os.scandir.
+        Optimized to yield string paths directly and minimize object overhead.
+        """
         count = 0
         try:
             with os.scandir(directory) as it:
@@ -2067,7 +2087,8 @@ Use Help menu to access guides and export files."""
                     if count >= limit:
                         return
                     if entry.is_file() and entry.name.lower().endswith(extensions):
-                        yield Path(entry.path)
+                        # Performance Optimization: Yield string path directly instead of Path object
+                        yield entry.path
                         count += 1
                     elif entry.is_dir():
                         # Recursively search subdirectories
