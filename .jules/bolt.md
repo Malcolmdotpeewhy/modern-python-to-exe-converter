@@ -30,3 +30,12 @@
 2. Use batch insertion for list-based UI components to minimize IPC.
 3. Implement progressive resizing (largest to smallest) for multi-size image generation.
 4. Use recursive generators with `os.scandir` for more responsive and terminable directory searches.
+
+## 2025-05-18 - Batching and Loop Optimizations in Tkinter
+
+**Learning:** Extracting loop-invariant Tkinter variable access (`.get()`) outside of processing loops in background threads significantly reduces IPC overhead with the Tcl interpreter. Additionally, caching formatted timestamps within the same second in high-frequency log updates and refactoring UI event handlers into shared class methods further minimizes computational and memory overhead.
+
+**Action:**
+1. Hoist all Tkinter widget/variable state reads outside of performance-critical loops.
+2. Batch UI updates and cache expensive string formatting (like timestamps) in logging systems.
+3. Use shared class methods for widget event bindings to reduce memory allocation from unique closures.
