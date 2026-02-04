@@ -132,6 +132,8 @@ class ModernPy2ExeConverter:
             return
 
         messages_processed = 0
+        batch_timestamp = None
+
         try:
             # Optimization: Process up to 25 messages per tick to minimize UI thread overhead
             for _ in range(25):
@@ -141,9 +143,10 @@ class ModernPy2ExeConverter:
                     # Batch UI updates: Enable once per batch
                     if messages_processed == 0:
                         self.output_text.config(state=tk.NORMAL)
+                        # Performance Optimization: Calculate timestamp once per batch to avoid redundant calls
+                        batch_timestamp = datetime.now().strftime("%H:%M:%S")
 
-                    timestamp = datetime.now().strftime("%H:%M:%S")
-                    self.output_text.insert(tk.END, f"[{timestamp}] ", "timestamp")
+                    self.output_text.insert(tk.END, f"[{batch_timestamp}] ", "timestamp")
                     self.output_text.insert(tk.END, f"{message}\n", level)
 
                     messages_processed += 1
@@ -1182,6 +1185,30 @@ Use Help menu to access guides and export files."""
         # Cache that no scrollable parent was found
         self._scroll_target_cache[widget] = None
 
+    def _on_widget_enter(self, event):
+        """Shared event handler for widget enter (hover) to avoid redundant closure allocations."""
+        if hasattr(event.widget, '_hover_bg'):
+            event.widget.configure(bg=event.widget._hover_bg)
+
+    def _on_widget_leave(self, event):
+        """Shared event handler for widget leave."""
+        if hasattr(event.widget, '_normal_bg'):
+            event.widget.configure(bg=event.widget._normal_bg)
+
+    def _on_widget_focus_in(self, event):
+        """Shared event handler for widget focus in."""
+        if hasattr(event.widget, '_focus_bg'):
+            event.widget.configure(highlightbackground=event.widget._focus_bg, highlightthickness=2)
+        if hasattr(event.widget, '_focus_fg'):
+            event.widget.configure(fg=event.widget._focus_fg)
+
+    def _on_widget_focus_out(self, event):
+        """Shared event handler for widget focus out."""
+        if hasattr(event.widget, '_focus_out_bg'):
+            event.widget.configure(highlightbackground=event.widget._focus_out_bg, highlightthickness=1)
+        if hasattr(event.widget, '_normal_fg'):
+            event.widget.configure(fg=event.widget._normal_fg)
+
     def _add_placeholder(self, entry, placeholder):
         """Add placeholder text to an entry widget."""
         def on_focus_in(e):
@@ -1233,20 +1260,16 @@ Use Help menu to access guides and export files."""
                        relief='flat')
         btn.pack(side=side, padx=10)
 
-        # Enhanced hover effects and focus indicators
-        def on_enter(e):
-            btn.configure(bg=style_config['hover'])
-        def on_leave(e):
-            btn.configure(bg=style_config['bg'])
-        def on_focus_in(e):
-            btn.configure(highlightbackground=self.colors['accent'], highlightthickness=2)
-        def on_focus_out(e):
-            btn.configure(highlightbackground=self.colors['border'], highlightthickness=1)
+        # Performance Optimization: Use shared class methods instead of redundant closure allocations
+        btn._normal_bg = style_config['bg']
+        btn._hover_bg = style_config['hover']
+        btn._focus_bg = self.colors['accent']
+        btn._focus_out_bg = self.colors['border']
 
-        btn.bind("<Enter>", on_enter)
-        btn.bind("<Leave>", on_leave)
-        btn.bind("<FocusIn>", on_focus_in)
-        btn.bind("<FocusOut>", on_focus_out)
+        btn.bind("<Enter>", self._on_widget_enter)
+        btn.bind("<Leave>", self._on_widget_leave)
+        btn.bind("<FocusIn>", self._on_widget_focus_in)
+        btn.bind("<FocusOut>", self._on_widget_focus_out)
 
         return btn
 
@@ -1266,13 +1289,12 @@ Use Help menu to access guides and export files."""
                            highlightcolor=self.colors['accent'],
                            cursor='hand2')
 
-        def on_focus_in(e):
-            cb.configure(fg=self.colors['accent'])
-        def on_focus_out(e):
-            cb.configure(fg=self.colors['fg'])
+        # Performance Optimization: Use shared class methods
+        cb._focus_fg = self.colors['accent']
+        cb._normal_fg = self.colors['fg']
 
-        cb.bind("<FocusIn>", on_focus_in)
-        cb.bind("<FocusOut>", on_focus_out)
+        cb.bind("<FocusIn>", self._on_widget_focus_in)
+        cb.bind("<FocusOut>", self._on_widget_focus_out)
         return cb
 
     # File and directory selection methods
@@ -1534,32 +1556,39 @@ Use Help menu to access guides and export files."""
                 # Create output directory if it doesn't exist
                 os.makedirs(output_dir, exist_ok=True)
 
+                # Performance Optimization: Extract loop-invariant configurations before processing loop
+                # This minimizes redundant Tcl interpreter calls and filesystem checks during batch conversions
+                use_onefile = self.onefile_var.get()
+                use_noconsole = self.noconsole_var.get()
+                use_debug = self.debug_var.get()
+                icon_file = self.icon_entry.get().strip()
+                icon_valid = icon_file and os.path.exists(icon_file)
+                hidden_imports_list = list(self.hidden_listbox.get(0, tk.END))
+
+                # Optimization: Single UI update before loop instead of every iteration
+                self.root.after(0, lambda: self.convert_btn.config(text="⏳ Converting..."))
+
                 for i, file in enumerate(files):
                     try:
-                        # Optimization: Use root.after for thread-safe UI updates from background thread
-                        self.root.after(0, lambda: self.convert_btn.config(text="⏳ Converting..."))
-
                         self.log_output(f"Converting {os.path.basename(file)}...", "info")
 
                         # Build PyInstaller command
                         cmd = ["pyinstaller"]
 
                         # Add options
-                        if self.onefile_var.get():
+                        if use_onefile:
                             cmd.append("--onefile")
-                        if self.noconsole_var.get():
+                        if use_noconsole:
                             cmd.append("--noconsole")
-                        if self.debug_var.get():
+                        if use_debug:
                             cmd.append("--debug")
 
                         # Add icon
-                        icon_file = self.icon_entry.get().strip()
-                        if icon_file and os.path.exists(icon_file):
+                        if icon_valid:
                             cmd.extend(["--icon", icon_file])
 
                         # Add hidden imports
-                        hidden_imports = self.hidden_listbox.get(0, tk.END)
-                        for hidden in hidden_imports:
+                        for hidden in hidden_imports_list:
                             cmd.extend(["--hidden-import", hidden])
 
                         # Set output directory
@@ -1904,18 +1933,26 @@ Use Help menu to access guides and export files."""
                     working_img = img.resize((max_size, max_size), Image.Resampling.LANCZOS)
 
                 # Performance Optimization: Sort sizes in descending order for progressive resizing
-                # This significantly reduces computational load by resizing from the next largest image
+                # This significantly reduces computational load by resizing from the next largest image.
+                # Quality Optimization: We maintain an unmasked source for resizing to prevent quality loss
+                # and redundant alpha-channel processing during progressive downscaling.
                 sorted_sizes = sorted(sizes, reverse=True)
                 size_to_shaped_img = {}
-                current_source = working_img
+                current_unmasked = working_img
 
                 for size in sorted_sizes:
-                    # Create shaped icon (uses instance-level cache)
-                    shaped_icon = self.create_shaped_icon(current_source, shape_key, size)
+                    # 1. Resize the unmasked image to target size
+                    if current_unmasked.size == (size, size):
+                        resized_unmasked = current_unmasked
+                    else:
+                        resized_unmasked = current_unmasked.resize((size, size), Image.Resampling.LANCZOS)
+
+                    # 2. Apply shape/mask to the correctly-sized unmasked image (create_shaped_icon handles the masking)
+                    shaped_icon = self.create_shaped_icon(resized_unmasked, shape_key, size)
                     size_to_shaped_img[size] = shaped_icon
 
-                    # For next smaller size, use this one as source
-                    current_source = shaped_icon
+                    # 3. Use this unmasked resized image as source for the next smaller size
+                    current_unmasked = resized_unmasked
 
                     # Save as ICO
                     ico_path = os.path.join(output_dir, f"{base_name}_{shape_key}_{size}x{size}.ico")
@@ -2060,6 +2097,7 @@ Use Help menu to access guides and export files."""
 
     def _iter_icons(self, directory, extensions, limit):
         """Internal recursive generator for efficient icon discovery using os.scandir."""
+        # Performance Optimization: Yield string paths directly instead of Path objects to minimize overhead
         count = 0
         try:
             with os.scandir(directory) as it:
@@ -2067,7 +2105,7 @@ Use Help menu to access guides and export files."""
                     if count >= limit:
                         return
                     if entry.is_file() and entry.name.lower().endswith(extensions):
-                        yield Path(entry.path)
+                        yield entry.path
                         count += 1
                     elif entry.is_dir():
                         # Recursively search subdirectories
@@ -2099,7 +2137,8 @@ Use Help menu to access guides and export files."""
 
         # Performance Optimization: Use os.scandir with a recursive generator for faster traversal and immediate termination
         extensions = ('.ico', '.png', '.jpg', '.jpeg', '.bmp')
-        limit = 100  # Reasonable limit to keep the UI responsive
+        # Performance Optimization: Match search limit to display limit (20) to minimize wasted I/O
+        limit = 20
 
         icon_files = list(self._iter_icons(search_dir, extensions, limit))
         found_count = len(icon_files)
