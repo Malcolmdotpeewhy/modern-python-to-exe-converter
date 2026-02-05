@@ -39,3 +39,12 @@
 1. Hoist all Tkinter widget/variable state reads outside of performance-critical loops.
 2. Batch UI updates and cache expensive string formatting (like timestamps) in logging systems.
 3. Use shared class methods for widget event bindings to reduce memory allocation from unique closures.
+
+## 2025-05-19 - Precision Caching and Resource Management
+
+**Learning:** When caching time-sensitive strings like log timestamps, using `datetime.now().second` as a key is insufficient due to potential collisions every 60 seconds. Utilizing `int(now.timestamp())` provides a globally unique key per second. Furthermore, utilizing `weakref.WeakKeyDictionary` for UI-related caches (like scroll targets) ensures that destroyed widgets are automatically purged from the cache, preventing memory leaks and keeping lookup tables small and efficient.
+
+**Action:**
+1. Use robust timestamp-based keys for time-sensitive caches.
+2. Employ `WeakKeyDictionary` for caching UI-associated metadata to ensure automatic resource cleanup.
+3. Pre-calculate trigonometric constants and reverse mappings to move computation from runtime loops to initialization.
