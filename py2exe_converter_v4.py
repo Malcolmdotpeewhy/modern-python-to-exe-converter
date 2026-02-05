@@ -13,6 +13,7 @@ import math
 import platform
 import itertools
 import queue
+import weakref
 
 class Tooltip:
     """Enhanced tooltip for tkinter widgets."""
@@ -84,11 +85,13 @@ class ModernPy2ExeConverter:
         self._process_log_queue()
 
         # Cache for mousewheel scroll targets to improve performance
-        self._scroll_target_cache = {}
+        # Performance Optimization: Use WeakKeyDictionary to avoid memory leaks and maintain fast lookups
+        self._scroll_target_cache = weakref.WeakKeyDictionary()
 
         # Caches for icon generation to improve performance
         self.shaped_icons_cache = {}
         self._mask_cache = {}
+        self.search_thumbnail_cache = {}
         self._pyinstaller_version = None
 
 
@@ -101,6 +104,8 @@ class ModernPy2ExeConverter:
             'star': 'Star',
             'diamond': 'Diamond'
         }
+        # Performance Optimization: Pre-calculate reverse mapping for O(1) shape lookup
+        self.reverse_icon_shapes = {v: k for k, v in self.icon_shapes.items()}
 
         # Create the GUI
         self.setup_styles()
@@ -143,8 +148,12 @@ class ModernPy2ExeConverter:
                     # Batch UI updates: Enable once per batch
                     if messages_processed == 0:
                         self.output_text.config(state=tk.NORMAL)
-                        # Performance Optimization: Calculate timestamp once per batch to avoid redundant calls
-                        batch_timestamp = datetime.now().strftime("%H:%M:%S")
+                        # Performance Optimization: Cache formatted timestamp string to avoid redundant strftime calls
+                        now = datetime.now()
+                        current_second = int(now.timestamp())
+                        if not hasattr(self, '_last_log_time') or self._last_log_time[0] != current_second:
+                            self._last_log_time = (current_second, now.strftime("%H:%M:%S"))
+                        batch_timestamp = self._last_log_time[1]
 
                     self.output_text.insert(tk.END, f"[{batch_timestamp}] ", "timestamp")
                     self.output_text.insert(tk.END, f"{message}\n", level)
@@ -1889,16 +1898,9 @@ Use Help menu to access guides and export files."""
             messagebox.showerror("Error", "Please select at least one icon size.")
             return
 
-        # Get selected shape
+        # Performance Optimization: Use pre-calculated reverse mapping for O(1) shape lookup
         shape_display = self.shape_var.get()
-        shape_key = None
-        for key, display in self.icon_shapes.items():
-            if display == shape_display:
-                shape_key = key
-                break
-
-        if not shape_key:
-            shape_key = 'square'
+        shape_key = self.reverse_icon_shapes.get(shape_display, 'square')
 
         # Ask for output directory - use default if available
         default_dir = self.default_settings.get('default_icon_output_dir',
@@ -2028,20 +2030,23 @@ Use Help menu to access guides and export files."""
         elif shape == 'hexagon':
             center = size // 2
             radius = center - 5
-            points = []
-            for i in range(6):
-                angle = math.radians(60 * i)
-                points.append((center + radius * math.cos(angle), center + radius * math.sin(angle)))
+            # Performance Optimization: Use pre-calculated sin/cos values for hexagon vertices (0, 60, 120, 180, 240, 300 deg)
+            hexagon_unit_points = [(1.0, 0.0), (0.5, 0.8660254), (-0.5, 0.8660254),
+                                 (-1.0, 0.0), (-0.5, -0.8660254), (0.5, -0.8660254)]
+            points = [(center + radius * c, center + radius * s) for c, s in hexagon_unit_points]
             draw.polygon(points, fill=255)
         elif shape == 'star':
             center = size // 2
             outer_radius = center - 5
             inner_radius = outer_radius * 0.4
-            points = []
-            for i in range(10):
-                angle = math.radians(36 * i - 90)
-                radius = outer_radius if i % 2 == 0 else inner_radius
-                points.append((center + radius * math.cos(angle), center + radius * math.sin(angle)))
+            # Performance Optimization: Use pre-calculated sin/cos values for star vertices (10 points alternating radii)
+            star_unit_points = [(0.0, -1.0), (0.587785, -0.809017), (0.951057, -0.309017),
+                               (0.951057, 0.309017), (0.587785, 0.809017), (0.0, 1.0),
+                               (-0.587785, 0.809017), (-0.951057, 0.309017), (-0.951057, -0.309017),
+                               (-0.587785, -0.809017)]
+            points = [(center + (outer_radius if i % 2 == 0 else inner_radius) * c,
+                       center + (outer_radius if i % 2 == 0 else inner_radius) * s)
+                      for i, (c, s) in enumerate(star_unit_points)]
             draw.polygon(points, fill=255)
         elif shape == 'diamond':
             center = size // 2
@@ -2167,33 +2172,38 @@ Use Help menu to access guides and export files."""
             icon_frame.grid(row=row, column=col, padx=10, pady=10, sticky='w')
 
             try:
-                # Create icon preview
-                with Image.open(icon_path) as img:
-                    img.thumbnail((64, 64), Image.Resampling.LANCZOS)
-                    icon_photo = ImageTk.PhotoImage(img)
+                # Performance Optimization: Cache thumbnails to avoid redundant I/O and resizing
+                if icon_path in self.search_thumbnail_cache:
+                    icon_photo = self.search_thumbnail_cache[icon_path]
+                else:
+                    # Create icon preview
+                    with Image.open(icon_path) as img:
+                        img.thumbnail((64, 64), Image.Resampling.LANCZOS)
+                        icon_photo = ImageTk.PhotoImage(img)
+                        self.search_thumbnail_cache[icon_path] = icon_photo
 
-                    icon_btn = tk.Button(icon_frame,
-                                        image=icon_photo,
-                                        command=lambda p=str(icon_path): self.select_icon_preview(p),
-                                        bg=self.colors['card'],
-                                        activebackground=self.colors['surface'],
-                                        relief='flat',
-                                        borderwidth=0,
-                                        highlightthickness=1,
-                                        highlightbackground=self.colors['border'],
-                                        cursor='hand2')
-                    icon_btn.pack()
+                icon_btn = tk.Button(icon_frame,
+                                    image=icon_photo,
+                                    command=lambda p=str(icon_path): self.select_icon_preview(p),
+                                    bg=self.colors['card'],
+                                    activebackground=self.colors['surface'],
+                                    relief='flat',
+                                    borderwidth=0,
+                                    highlightthickness=1,
+                                    highlightbackground=self.colors['border'],
+                                    cursor='hand2')
+                icon_btn.pack()
 
-                    # Keep reference to prevent garbage collection
-                    icon_btn.image = icon_photo
+                # Keep reference to prevent garbage collection
+                icon_btn.image = icon_photo
 
-                    # Icon filename label
-                    name_label = tk.Label(icon_frame,
-                                         text=icon_path.name[:15] + "..." if len(icon_path.name) > 15 else icon_path.name,
-                                         bg=self.colors['card'],
-                                         fg=self.colors['fg'],
-                                         font=('Segoe UI', self.base_font_size - 1))
-                    name_label.pack()
+                # Icon filename label
+                name_label = tk.Label(icon_frame,
+                                     text=icon_path.name[:15] + "..." if len(icon_path.name) > 15 else icon_path.name,
+                                     bg=self.colors['card'],
+                                     fg=self.colors['fg'],
+                                     font=('Segoe UI', self.base_font_size - 1))
+                name_label.pack()
 
             except Exception as e:
                 # Fallback for unreadable images
