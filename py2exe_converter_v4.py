@@ -53,6 +53,17 @@ except ImportError:
 class ModernPy2ExeConverter:
     """Modern Python to EXE Converter with enhanced GUI and icon management."""
 
+    # Performance Optimization: Pre-calculate unit circle vertices for shapes
+    # This avoids repeated math.cos/math.sin/math.radians calls during icon generation
+    HEX_VERTICES = [(math.cos(math.radians(60 * i)), math.sin(math.radians(60 * i))) for i in range(6)]
+    STAR_VERTICES = [
+        (
+            (1.0 if i % 2 == 0 else 0.4) * math.cos(math.radians(36 * i - 90)),
+            (1.0 if i % 2 == 0 else 0.4) * math.sin(math.radians(36 * i - 90))
+        )
+        for i in range(10)
+    ]
+
     def __init__(self):
         """Initialize the main application window with modern styling."""
         self.root = tk.Tk()
@@ -88,6 +99,7 @@ class ModernPy2ExeConverter:
 
         # Caches for icon generation to improve performance
         self.shaped_icons_cache = {}
+        self.search_thumbnail_cache = {}
         self._mask_cache = {}
         self._pyinstaller_version = None
 
@@ -136,6 +148,7 @@ class ModernPy2ExeConverter:
 
         try:
             # Optimization: Process up to 25 messages per tick to minimize UI thread overhead
+            inserts = []
             for _ in range(25):
                 try:
                     message, level = self.log_queue.get_nowait()
@@ -146,12 +159,16 @@ class ModernPy2ExeConverter:
                         # Performance Optimization: Calculate timestamp once per batch to avoid redundant calls
                         batch_timestamp = datetime.now().strftime("%H:%M:%S")
 
-                    self.output_text.insert(tk.END, f"[{batch_timestamp}] ", "timestamp")
-                    self.output_text.insert(tk.END, f"{message}\n", level)
+                    # Performance Optimization: Collect all inserts to minimize IPC calls via *args
+                    inserts.extend([f"[{batch_timestamp}] ", "timestamp", f"{message}\n", level])
 
                     messages_processed += 1
                 except queue.Empty:
                     break
+
+            if inserts:
+                # Performance Optimization: Single IPC call for all batched messages
+                self.output_text.insert(tk.END, *inserts)
         finally:
             if messages_processed > 0:
                 # Batch UI updates: Scroll and disable once per batch
@@ -2028,20 +2045,14 @@ Use Help menu to access guides and export files."""
         elif shape == 'hexagon':
             center = size // 2
             radius = center - 5
-            points = []
-            for i in range(6):
-                angle = math.radians(60 * i)
-                points.append((center + radius * math.cos(angle), center + radius * math.sin(angle)))
+            # Performance Optimization: Use pre-calculated vertices
+            points = [(center + radius * x, center + radius * y) for x, y in self.HEX_VERTICES]
             draw.polygon(points, fill=255)
         elif shape == 'star':
             center = size // 2
-            outer_radius = center - 5
-            inner_radius = outer_radius * 0.4
-            points = []
-            for i in range(10):
-                angle = math.radians(36 * i - 90)
-                radius = outer_radius if i % 2 == 0 else inner_radius
-                points.append((center + radius * math.cos(angle), center + radius * math.sin(angle)))
+            radius = center - 5
+            # Performance Optimization: Use pre-calculated vertices
+            points = [(center + radius * x, center + radius * y) for x, y in self.STAR_VERTICES]
             draw.polygon(points, fill=255)
         elif shape == 'diamond':
             center = size // 2
@@ -2107,7 +2118,8 @@ Use Help menu to access guides and export files."""
                     if entry.is_file() and entry.name.lower().endswith(extensions):
                         yield entry.path
                         count += 1
-                    elif entry.is_dir():
+                    elif entry.is_dir() and not entry.name.startswith('.'):
+                        # Performance Optimization: Skip hidden directories (like .git, .venv)
                         # Recursively search subdirectories
                         for icon in self._iter_icons(entry.path, extensions, limit - count):
                             yield icon
@@ -2118,9 +2130,8 @@ Use Help menu to access guides and export files."""
             pass
 
     def search_icons(self):
-        """Search for icon files in the specified directory using an efficient recursive generator."""
+        """Search for icon files asynchronously to keep UI responsive."""
         search_dir = self.search_entry.get().strip()
-        # Handle placeholder
         if search_dir == "Directory to search for icons...":
             search_dir = ""
 
@@ -2128,81 +2139,92 @@ Use Help menu to access guides and export files."""
             messagebox.showerror("Error", "Please select a valid directory to search.")
             return
 
-        # Clear previous results
+        # Clear previous results and show loading status
         for widget in self.icons_scrollable_frame.winfo_children():
             widget.destroy()
 
-        # Hide empty state label
+        self.empty_icons_label.config(text="⏳ Searching and processing icons...")
+        self.empty_icons_label.place(relx=0.5, rely=0.5, anchor='center')
+
+        def run_search():
+            # Performance Optimization: Match search limit to display limit (20) to minimize wasted I/O
+            extensions = ('.ico', '.png', '.jpg', '.jpeg', '.bmp')
+            limit = 20
+
+            icon_files = list(self._iter_icons(search_dir, extensions, limit))
+
+            # Process icons in background (read and thumbnail)
+            processed_icons = []
+            for icon_path in icon_files:
+                try:
+                    # We can't create PhotoImage in a thread, so we just prepare the PIL Image
+                    with Image.open(icon_path) as img:
+                        # Performance Optimization: Use BOX resampling for fast preview generation
+                        img.thumbnail((64, 64), Image.Resampling.BOX)
+                        img.load() # Ensure image is loaded before closing
+                        processed_icons.append((icon_path, img))
+                except Exception:
+                    processed_icons.append((icon_path, None))
+
+            # Update UI on main thread
+            self.root.after(0, lambda: self._update_icons_display(processed_icons, len(icon_files) >= limit))
+
+        threading.Thread(target=run_search, daemon=True).start()
+
+    def _update_icons_display(self, processed_icons, reached_limit):
+        """Update the icons display area with processed results. Should be called on main thread."""
         self.empty_icons_label.place_forget()
 
-        # Performance Optimization: Use os.scandir with a recursive generator for faster traversal and immediate termination
-        extensions = ('.ico', '.png', '.jpg', '.jpeg', '.bmp')
-        # Performance Optimization: Match search limit to display limit (20) to minimize wasted I/O
-        limit = 20
-
-        icon_files = list(self._iter_icons(search_dir, extensions, limit))
-        found_count = len(icon_files)
-
-        if found_count == 0:
+        if not processed_icons:
             self.empty_icons_label.config(text="❌ No icons found in this directory.")
             self.empty_icons_label.place(relx=0.5, rely=0.5, anchor='center')
             return
 
-        # Display found icons
         if hasattr(self, 'log_output'):
-            msg = f"Found {found_count} icon files"
-            if found_count >= limit:
-                msg += f" (stopped searching at {limit} for performance)"
+            msg = f"Found {len(processed_icons)} icon files"
+            if reached_limit:
+                msg += " (stopped searching at limit for performance)"
             self.log_output(msg, "info")
 
-        # Create grid of icon previews
         columns = 4
-        # Display a subset of found icons to maintain UI performance
-        display_limit = 20
-        for i, icon_path in enumerate(icon_files[:display_limit]):
+        for i, (icon_path_str, img) in enumerate(processed_icons):
             row = i // columns
             col = i % columns
 
+            icon_path = Path(icon_path_str)
             icon_frame = tk.Frame(self.icons_scrollable_frame, bg=self.colors['card'])
             icon_frame.grid(row=row, column=col, padx=10, pady=10, sticky='w')
 
-            try:
-                # Create icon preview
-                with Image.open(icon_path) as img:
-                    img.thumbnail((64, 64), Image.Resampling.LANCZOS)
-                    icon_photo = ImageTk.PhotoImage(img)
+            if img:
+                try:
+                    # Performance Optimization: check search_thumbnail_cache
+                    cache_key = icon_path_str
+                    if hasattr(self, 'search_thumbnail_cache') and cache_key in self.search_thumbnail_cache:
+                        icon_photo = self.search_thumbnail_cache[cache_key]
+                    else:
+                        icon_photo = ImageTk.PhotoImage(img)
+                        if hasattr(self, 'search_thumbnail_cache'):
+                            self.search_thumbnail_cache[cache_key] = icon_photo
 
-                    icon_btn = tk.Button(icon_frame,
-                                        image=icon_photo,
-                                        command=lambda p=str(icon_path): self.select_icon_preview(p),
-                                        bg=self.colors['card'],
-                                        activebackground=self.colors['surface'],
-                                        relief='flat',
-                                        borderwidth=0,
-                                        highlightthickness=1,
-                                        highlightbackground=self.colors['border'],
-                                        cursor='hand2')
+                    icon_btn = tk.Button(icon_frame, image=icon_photo,
+                                        command=lambda p=icon_path_str: self.select_icon_preview(p),
+                                        bg=self.colors['card'], activebackground=self.colors['surface'],
+                                        relief='flat', borderwidth=0, highlightthickness=1,
+                                        highlightbackground=self.colors['border'], cursor='hand2')
                     icon_btn.pack()
-
-                    # Keep reference to prevent garbage collection
                     icon_btn.image = icon_photo
+                except Exception:
+                    img = None # Fallback to error label
 
-                    # Icon filename label
-                    name_label = tk.Label(icon_frame,
-                                         text=icon_path.name[:15] + "..." if len(icon_path.name) > 15 else icon_path.name,
-                                         bg=self.colors['card'],
-                                         fg=self.colors['fg'],
-                                         font=('Segoe UI', self.base_font_size - 1))
-                    name_label.pack()
+            if not img:
+                tk.Label(icon_frame, text="Invalid\nImage", bg=self.colors['card'],
+                         fg=self.colors['error'], font=('Segoe UI', self.base_font_size - 1)).pack()
 
-            except Exception as e:
-                # Fallback for unreadable images
-                error_label = tk.Label(icon_frame,
-                                      text="Invalid\nImage",
-                                      bg=self.colors['card'],
-                                      fg=self.colors['error'],
-                                      font=('Segoe UI', self.base_font_size - 1))
-                error_label.pack()
+            name_label = tk.Label(icon_frame,
+                                 text=icon_path.name[:15] + "..." if len(icon_path.name) > 15 else icon_path.name,
+                                 bg=self.colors['card'], fg=self.colors['fg'],
+                                 font=('Segoe UI', self.base_font_size - 1))
+            name_label.pack()
 
     def select_icon_preview(self, icon_path):
         """Select an icon from the preview grid."""

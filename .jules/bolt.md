@@ -39,3 +39,7 @@
 1. Hoist all Tkinter widget/variable state reads outside of performance-critical loops.
 2. Batch UI updates and cache expensive string formatting (like timestamps) in logging systems.
 3. Use shared class methods for widget event bindings to reduce memory allocation from unique closures.
+
+## 2026-02-06 - Tkinter IPC Optimization with Variadic Arguments
+**Learning:** Tkinter's `Text.insert` method accepts variadic arguments (`index, chars, tags, chars, tags, ...`), which allows batching multiple styled text insertions into a single IPC call. This is significantly faster than multiple sequential `insert` calls, especially when logging many messages from a background queue.
+**Action:** Always batch styled text updates in Tkinter by collecting them into a list and using the `*args` expansion in a single `insert` call.
