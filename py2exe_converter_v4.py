@@ -83,8 +83,11 @@ class ModernPy2ExeConverter:
         self.log_queue = queue.Queue()
         self._process_log_queue()
 
-        # Cache for mousewheel scroll targets to improve performance
+        # Performance Caches
         self._scroll_target_cache = {}
+        self.shaped_icons_cache = {}
+        self._mask_cache = {}
+        self._pyinstaller_version = None
 
         # Caches for icon generation to improve performance
         self.shaped_icons_cache = {}
@@ -126,12 +129,15 @@ class ModernPy2ExeConverter:
         return Tooltip(widget, text)
 
     def _process_log_queue(self):
+        """Process messages in the log queue in batches to improve performance and ensure thread safety."""
         """Process messages in the log queue with batched UI updates for better performance."""
         if not hasattr(self, 'output_text') or not self.output_text:
             self.root.after(100, self._process_log_queue)
             return
 
         messages_processed = 0
+        try:
+            # Process up to 25 messages at once to minimize UI thread context switches
         batch_timestamp = None
 
         try:
@@ -140,6 +146,12 @@ class ModernPy2ExeConverter:
                 try:
                     message, level = self.log_queue.get_nowait()
 
+                    # Batch UI updates: Enable once, insert many, disable once per batch
+                    if messages_processed == 0:
+                        self.output_text.config(state=tk.NORMAL)
+
+                    timestamp = datetime.now().strftime("%H:%M:%S")
+                    self.output_text.insert(tk.END, f"[{timestamp}] ", "timestamp")
                     # Batch UI updates: Enable once per batch
                     if messages_processed == 0:
                         self.output_text.config(state=tk.NORMAL)
@@ -154,6 +166,7 @@ class ModernPy2ExeConverter:
                     break
         finally:
             if messages_processed > 0:
+                # Disable once and scroll once per batch to improve performance and reduce flickering
                 # Batch UI updates: Scroll and disable once per batch
                 self.output_text.see(tk.END)
                 self.output_text.config(state=tk.DISABLED)
@@ -725,6 +738,11 @@ class ModernPy2ExeConverter:
 
         # Check PyInstaller button
         def check_pyinstaller():
+            version = self._get_pyinstaller_version()
+            if version:
+                messagebox.showinfo("PyInstaller Status",
+                                   f"✅ PyInstaller is installed\nVersion: {version}")
+            else:
             if self._pyinstaller_version:
                 messagebox.showinfo("PyInstaller Status",
                                    f"✅ PyInstaller is installed\nVersion: {self._pyinstaller_version}")
@@ -1305,6 +1323,12 @@ Use Help menu to access guides and export files."""
             title="Select Python Files to Convert"
         )
         if files:
+            # Optimization: Use a set for O(1) duplicate checks to improve performance with many files
+            current_files = set(self.files_listbox.get(0, tk.END))
+            for file in files:
+                if file not in current_files:
+                    self.files_listbox.insert(tk.END, file)
+                    current_files.add(file)
             # Optimization: Use a set for O(1) duplicate checks
             current_files = set(self.files_listbox.get(0, tk.END))
             new_files = [f for f in files if f not in current_files]
@@ -1400,6 +1424,19 @@ Use Help menu to access guides and export files."""
         entry_module.bind('<Return>', lambda e: add_to_list())
 
     # Logging and validation methods
+    def _get_pyinstaller_version(self):
+        """Get PyInstaller version with caching to improve UI responsiveness."""
+        if hasattr(self, '_pyinstaller_version') and self._pyinstaller_version:
+            return self._pyinstaller_version
+
+        try:
+            result = subprocess.run(["pyinstaller", "--version"],
+                                  capture_output=True, text=True, check=True)
+            self._pyinstaller_version = result.stdout.strip()
+            return self._pyinstaller_version
+        except (FileNotFoundError, subprocess.CalledProcessError):
+            return None
+
     def log_output(self, message, level="info"):
         """Log a message via a thread-safe queue. This is more efficient and prevents UI hangs."""
         if hasattr(self, 'log_queue'):
@@ -1486,6 +1523,9 @@ Use Help menu to access guides and export files."""
             else:
                 warnings.append("Using default Python icon (no custom icon specified)")
 
+        # Check PyInstaller availability (cached)
+        if not self._get_pyinstaller_version():
+            warnings.append("PyInstaller not found - will attempt to install")
         # Check PyInstaller availability (using cache if available)
         if not self._pyinstaller_version:
             try:
@@ -1534,6 +1574,10 @@ Use Help menu to access guides and export files."""
         files = list(self.files_listbox.get(0, tk.END))
         output_dir = self.output_entry.get().strip()
 
+        # Check and install PyInstaller if necessary (cached)
+        if not self._get_pyinstaller_version():
+            if not self.install_pyinstaller():
+                return
         # Check and install PyInstaller if necessary (using cache if available)
         if not self._pyinstaller_version:
             try:
@@ -1570,6 +1614,9 @@ Use Help menu to access guides and export files."""
 
                 for i, file in enumerate(files):
                     try:
+                        # Dynamic button feedback (safe UI update)
+                        self.root.after(0, lambda idx=i: self.convert_btn.config(text=f"⏳ Converting {idx+1}/{len(files)}..."))
+
                         self.log_output(f"Converting {os.path.basename(file)}...", "info")
 
                         # Build PyInstaller command
@@ -1606,6 +1653,8 @@ Use Help menu to access guides and export files."""
                         self.log_output(f"✅ Successfully converted {os.path.basename(file)}", "success")
                         successful_conversions += 1
 
+                        # Update progress (safe UI update)
+                        self.root.after(0, lambda val=i+1: self.progress_var.set(val))
                         # Optimization: Use root.after for thread-safe UI updates
                         self.root.after(0, lambda v=i+1: self.progress_var.set(v))
 
@@ -1621,6 +1670,9 @@ Use Help menu to access guides and export files."""
                 # Final summary
                 if successful_conversions > 0:
                     self.log_output(f"🎉 Conversion completed! {successful_conversions}/{len(files)} files converted successfully.", "success")
+                    self.root.after(0, lambda: messagebox.showinfo("Conversion Complete",
+                                       f"Successfully converted {successful_conversions} out of {len(files)} files.\n\n"
+                                       f"Output directory: {output_dir}"))
                     msg = f"Successfully converted {successful_conversions} out of {len(files)} files.\n\nOutput directory: {output_dir}"
                     self.root.after(0, lambda m=msg: messagebox.showinfo("Conversion Complete", m))
                 else:
@@ -1633,6 +1685,7 @@ Use Help menu to access guides and export files."""
                 self.root.after(0, lambda m=error_msg: messagebox.showerror("Critical Error", m))
 
             finally:
+                # Re-enable convert button and reset progress (safe UI updates)
                 # Optimization: Ensure all final UI updates are scheduled on the main thread
                 self.root.after(0, lambda: self.convert_btn.config(state=tk.NORMAL, text="🔄 Convert to EXE"))
                 self.root.after(0, lambda: self.progress_var.set(0))
@@ -1932,6 +1985,13 @@ Use Help menu to access guides and export files."""
                         self.log_output(f"Optimizing: Pre-resizing source image to {max_size}x{max_size}...", "info")
                     working_img = img.resize((max_size, max_size), Image.Resampling.LANCZOS)
 
+                # Create each size with the selected shape
+                # Performance: create_shaped_icon now uses instance-level caching
+                for size_str in selected_sizes:
+                    size = int(size_str.split('x')[0])
+
+                    # Create shaped icon (uses instance-level cache)
+                    shaped_icon = self.create_shaped_icon(working_img, shape_key, size)
                 # Performance Optimization: Sort sizes in descending order for progressive resizing
                 # This significantly reduces computational load by resizing from the next largest image.
                 # Quality Optimization: We maintain an unmasked source for resizing to prevent quality loss
@@ -1965,6 +2025,8 @@ Use Help menu to access guides and export files."""
                 # Create multi-size ICO with shape
                 multi_ico_path = os.path.join(output_dir, f"{base_name}_{shape_key}_multi.ico")
 
+&                # Retrieve shaped icons for multi-size ICO (will hit the cache)
+                shaped_icons = [self.create_shaped_icon(working_img, shape_key, s) for s in sizes]
                 # Use pre-calculated icons for multi-size ICO
                 shaped_icons = [size_to_shaped_img[s] for s in sizes]
 
@@ -2011,6 +2073,128 @@ Use Help menu to access guides and export files."""
             messagebox.showerror("Icon Creation Error", error_msg)
 
     def _get_shape_mask(self, shape, size, **kwargs):
+        """Create and cache shape masks for icon generation to improve performance."""
+        # Use kwargs in cache key for shape-specific parameters (like radius)
+        kwargs_tuple = tuple(sorted(kwargs.items()))
+        mask_key = (shape, size, kwargs_tuple)
+
+        if hasattr(self, '_mask_cache') and mask_key in self._mask_cache:
+            return self._mask_cache[mask_key]
+
+        mask = Image.new('L', (size, size), 0)
+        draw = ImageDraw.Draw(mask)
+
+        if shape == 'square':
+            radius = kwargs.get('radius', size // 8)
+            draw.rounded_rectangle([0, 0, size-1, size-1], radius=radius, fill=255)
+        elif shape == 'circle':
+            draw.ellipse([0, 0, size-1, size-1], fill=255)
+        elif shape == 'triangle':
+            points = [(size // 2, 5), (5, size - 5), (size - 5, size - 5)]
+            draw.polygon(points, fill=255)
+        elif shape == 'hexagon':
+            center = size // 2
+            radius = center - 5
+            points = []
+            for i in range(6):
+                angle = math.radians(60 * i)
+                points.append((center + radius * math.cos(angle), center + radius * math.sin(angle)))
+            draw.polygon(points, fill=255)
+        elif shape == 'star':
+            center = size // 2
+            outer_radius = center - 5
+            inner_radius = outer_radius * 0.4
+            points = []
+            for i in range(10):
+                angle = math.radians(36 * i - 90)
+                r = outer_radius if i % 2 == 0 else inner_radius
+                points.append((center + r * math.cos(angle), center + r * math.sin(angle)))
+            draw.polygon(points, fill=255)
+        elif shape == 'diamond':
+            center = size // 2
+            points = [(center, 5), (size - 5, center), (center, size - 5), (5, center)]
+            draw.polygon(points, fill=255)
+
+        if hasattr(self, '_mask_cache'):
+            self._mask_cache[mask_key] = mask
+        return mask
+
+    def create_shaped_icon(self, image, shape, size):
+        """Create a shaped icon with optimized caching and mask application."""
+        # Check cache first using image ID, shape, and size
+        cache_key = (id(image), shape, size)
+        if hasattr(self, 'shaped_icons_cache') and cache_key in self.shaped_icons_cache:
+            return self.shaped_icons_cache[cache_key]
+
+        # Resize image to target size - this returns a new image object
+        img = image.resize((size, size), Image.Resampling.LANCZOS)
+
+        # Ensure image is RGBA for alpha channel support
+        if img.mode != 'RGBA':
+            img = img.convert('RGBA')
+
+        # Apply shape-specific mask
+        if shape == 'square':
+            result = self.create_rounded_icon(img, size // 8)
+        elif shape == 'circle':
+            result = self.create_circle_icon(img)
+        elif shape == 'triangle':
+            result = self.create_triangle_icon(img)
+        elif shape == 'hexagon':
+            result = self.create_hexagon_icon(img)
+        elif shape == 'star':
+            result = self.create_star_icon(img)
+        elif shape == 'diamond':
+            result = self.create_diamond_icon(img)
+        else:
+            result = self.create_rounded_icon(img, size // 8)
+
+        # Cache the result
+        if hasattr(self, 'shaped_icons_cache'):
+            self.shaped_icons_cache[cache_key] = result
+        return result
+
+    def create_rounded_icon(self, img, radius):
+        """Create a rounded rectangle icon using cached mask."""
+        size = img.size[0]
+        mask = self._get_shape_mask('square', size, radius=radius)
+        # Apply mask directly to the resized image to avoid extra copy/paste operations
+        img.putalpha(mask)
+        return img
+
+    def create_circle_icon(self, img):
+        """Create a circular icon using cached mask."""
+        size = img.size[0]
+        mask = self._get_shape_mask('circle', size)
+        img.putalpha(mask)
+        return img
+
+    def create_triangle_icon(self, img):
+        """Create a triangular icon using cached mask."""
+        size = img.size[0]
+        mask = self._get_shape_mask('triangle', size)
+        img.putalpha(mask)
+        return img
+
+    def create_hexagon_icon(self, img):
+        """Create a hexagonal icon using cached mask."""
+        size = img.size[0]
+        mask = self._get_shape_mask('hexagon', size)
+        img.putalpha(mask)
+        return img
+
+    def create_star_icon(self, img):
+        """Create a star-shaped icon using cached mask."""
+        size = img.size[0]
+        mask = self._get_shape_mask('star', size)
+        img.putalpha(mask)
+        return img
+
+    def create_diamond_icon(self, img):
+        """Create a diamond-shaped icon using cached mask."""
+        size = img.size[0]
+        mask = self._get_shape_mask('diamond', size)
+        img.putalpha(mask)
         """Create and cache a shape mask to improve performance."""
         # Create a stable cache key based on shape, size and additional arguments
         mask_key = (shape, size, tuple(sorted(kwargs.items())))

@@ -11,6 +11,15 @@
 4. Optimize logging with thread-safe queue and batched updates.
 5. Cache scrollable targets in mousewheel events.
 
+## 2025-05-16 - Optimization Success: Batching and Caching
+
+**Learning:** Batching UI updates in Tkinter by toggling widget state and scrolling only once per queue process significantly reduces lag and flickering. Caching external command results (like PyInstaller version) and image masks avoids redundant I/O and CPU-intensive drawing. Using 'root.after' for thread-safe UI updates is crucial for stability.
+
+**Action:**
+1. Implement batching for all high-frequency UI updates.
+2. Cache expensive subprocess results.
+3. Use a global mask cache for image processing.
+4. Always use 'root.after' for updates from background threads.
 ## 2025-05-16 - UI and Processing Optimizations
 
 **Learning:** Thread-safe UI updates and batched logging are crucial for maintaining responsiveness in Tkinter applications during long-running tasks like conversion. Directly calling root.update() from a background thread is an anti-pattern that can cause instability. Additionally, image processing efficiency can be significantly improved by caching masks and using direct alpha application (putalpha) instead of redundant buffer copies.
