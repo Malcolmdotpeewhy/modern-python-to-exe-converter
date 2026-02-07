@@ -13,6 +13,15 @@ import math
 import platform
 import itertools
 import queue
+import weakref
+
+# Constants for shape generation - Pre-calculated to avoid redundant math calls
+HEX_VERTICES = [(math.cos(math.radians(60 * i)), math.sin(math.radians(60 * i))) for i in range(6)]
+STAR_VERTICES = [
+    ((1.0 if i % 2 == 0 else 0.4) * math.cos(math.radians(36 * i - 90)),
+     (1.0 if i % 2 == 0 else 0.4) * math.sin(math.radians(36 * i - 90)))
+    for i in range(10)
+]
 
 class Tooltip:
     """Enhanced tooltip for tkinter widgets."""
@@ -84,11 +93,13 @@ class ModernPy2ExeConverter:
         self._process_log_queue()
 
         # Cache for mousewheel scroll targets to improve performance
-        self._scroll_target_cache = {}
+        # Performance Optimization: Use WeakKeyDictionary to prevent memory leaks and ensure automatic cleanup
+        self._scroll_target_cache = weakref.WeakKeyDictionary()
 
         # Caches for icon generation to improve performance
         self.shaped_icons_cache = {}
         self._mask_cache = {}
+        self.search_thumbnail_cache = {}
         self._pyinstaller_version = None
 
 
@@ -2028,20 +2039,14 @@ Use Help menu to access guides and export files."""
         elif shape == 'hexagon':
             center = size // 2
             radius = center - 5
-            points = []
-            for i in range(6):
-                angle = math.radians(60 * i)
-                points.append((center + radius * math.cos(angle), center + radius * math.sin(angle)))
+            # Performance Optimization: Use pre-calculated unit vertices
+            points = [(center + radius * x, center + radius * y) for x, y in HEX_VERTICES]
             draw.polygon(points, fill=255)
         elif shape == 'star':
             center = size // 2
-            outer_radius = center - 5
-            inner_radius = outer_radius * 0.4
-            points = []
-            for i in range(10):
-                angle = math.radians(36 * i - 90)
-                radius = outer_radius if i % 2 == 0 else inner_radius
-                points.append((center + radius * math.cos(angle), center + radius * math.sin(angle)))
+            radius = center - 5
+            # Performance Optimization: Use pre-calculated unit vertices
+            points = [(center + radius * x, center + radius * y) for x, y in STAR_VERTICES]
             draw.polygon(points, fill=255)
         elif shape == 'diamond':
             center = size // 2
@@ -2108,6 +2113,11 @@ Use Help menu to access guides and export files."""
                         yield entry.path
                         count += 1
                     elif entry.is_dir():
+                        # Performance Optimization: Skip hidden directories (starting with '.')
+                        # These often contain irrelevant metadata or large amounts of files (e.g. .git, .venv)
+                        if entry.name.startswith('.'):
+                            continue
+
                         # Recursively search subdirectories
                         for icon in self._iter_icons(entry.path, extensions, limit - count):
                             yield icon
@@ -2167,33 +2177,40 @@ Use Help menu to access guides and export files."""
             icon_frame.grid(row=row, column=col, padx=10, pady=10, sticky='w')
 
             try:
-                # Create icon preview
-                with Image.open(icon_path) as img:
-                    img.thumbnail((64, 64), Image.Resampling.LANCZOS)
-                    icon_photo = ImageTk.PhotoImage(img)
+                # Performance Optimization: Use cached thumbnail if available
+                if icon_path in self.search_thumbnail_cache:
+                    icon_photo = self.search_thumbnail_cache[icon_path]
+                else:
+                    # Create icon preview
+                    with Image.open(icon_path) as img:
+                        # Performance Optimization: Use BOX resampling for thumbnails (faster)
+                        img.thumbnail((64, 64), Image.Resampling.BOX)
+                        icon_photo = ImageTk.PhotoImage(img)
+                        self.search_thumbnail_cache[icon_path] = icon_photo
 
-                    icon_btn = tk.Button(icon_frame,
-                                        image=icon_photo,
-                                        command=lambda p=str(icon_path): self.select_icon_preview(p),
-                                        bg=self.colors['card'],
-                                        activebackground=self.colors['surface'],
-                                        relief='flat',
-                                        borderwidth=0,
-                                        highlightthickness=1,
-                                        highlightbackground=self.colors['border'],
-                                        cursor='hand2')
-                    icon_btn.pack()
+                icon_btn = tk.Button(icon_frame,
+                                    image=icon_photo,
+                                    command=lambda p=str(icon_path): self.select_icon_preview(p),
+                                    bg=self.colors['card'],
+                                    activebackground=self.colors['surface'],
+                                    relief='flat',
+                                    borderwidth=0,
+                                    highlightthickness=1,
+                                    highlightbackground=self.colors['border'],
+                                    cursor='hand2')
+                icon_btn.pack()
 
-                    # Keep reference to prevent garbage collection
-                    icon_btn.image = icon_photo
+                # Keep reference to prevent garbage collection
+                icon_btn.image = icon_photo
 
-                    # Icon filename label
-                    name_label = tk.Label(icon_frame,
-                                         text=icon_path.name[:15] + "..." if len(icon_path.name) > 15 else icon_path.name,
-                                         bg=self.colors['card'],
-                                         fg=self.colors['fg'],
-                                         font=('Segoe UI', self.base_font_size - 1))
-                    name_label.pack()
+                # Icon filename label - Fix Bug: icon_path is a string, use os.path.basename
+                icon_name = os.path.basename(icon_path)
+                name_label = tk.Label(icon_frame,
+                                     text=icon_name[:15] + "..." if len(icon_name) > 15 else icon_name,
+                                     bg=self.colors['card'],
+                                     fg=self.colors['fg'],
+                                     font=('Segoe UI', self.base_font_size - 1))
+                name_label.pack()
 
             except Exception as e:
                 # Fallback for unreadable images
