@@ -4,15 +4,14 @@ import os
 import subprocess
 import sys
 import threading
-from PIL import Image, ImageTk, ImageDraw, ImageFilter
+from PIL import Image, ImageTk, ImageDraw
 import json
 from pathlib import Path
-import shutil
 from datetime import datetime
 import math
 import platform
-import itertools
 import queue
+import weakref
 
 class Tooltip:
     """Enhanced tooltip for tkinter widgets."""
@@ -53,6 +52,13 @@ except ImportError:
 class ModernPy2ExeConverter:
     """Modern Python to EXE Converter with enhanced GUI and icon management."""
 
+    # Performance Optimization: Pre-calculate unit circle vertices for shapes to avoid
+    # redundant trigonometric calculations during mask generation.
+    HEX_VERTICES = [(math.cos(math.radians(60 * i)), math.sin(math.radians(60 * i))) for i in range(6)]
+    STAR_VERTICES = [((1.0 if i % 2 == 0 else 0.4) * math.cos(math.radians(36 * i - 90)),
+                      (1.0 if i % 2 == 0 else 0.4) * math.sin(math.radians(36 * i - 90)))
+                     for i in range(10)]
+
     def __init__(self):
         """Initialize the main application window with modern styling."""
         self.root = tk.Tk()
@@ -83,8 +89,9 @@ class ModernPy2ExeConverter:
         self.log_queue = queue.Queue()
         self._process_log_queue()
 
-        # Cache for mousewheel scroll targets to improve performance
-        self._scroll_target_cache = {}
+        # Performance Optimization: Use WeakKeyDictionary for mousewheel scroll targets
+        # to ensure destroyed widgets can be garbage collected from the cache.
+        self._scroll_target_cache = weakref.WeakKeyDictionary()
 
         # Caches for icon generation to improve performance
         self.shaped_icons_cache = {}
@@ -133,6 +140,7 @@ class ModernPy2ExeConverter:
 
         messages_processed = 0
         batch_timestamp = None
+        inserts = []
 
         try:
             # Optimization: Process up to 25 messages per tick to minimize UI thread overhead
@@ -140,18 +148,20 @@ class ModernPy2ExeConverter:
                 try:
                     message, level = self.log_queue.get_nowait()
 
-                    # Batch UI updates: Enable once per batch
+                    # Performance Optimization: Calculate timestamp once per batch to avoid redundant calls
                     if messages_processed == 0:
-                        self.output_text.config(state=tk.NORMAL)
-                        # Performance Optimization: Calculate timestamp once per batch to avoid redundant calls
                         batch_timestamp = datetime.now().strftime("%H:%M:%S")
 
-                    self.output_text.insert(tk.END, f"[{batch_timestamp}] ", "timestamp")
-                    self.output_text.insert(tk.END, f"{message}\n", level)
-
+                    # Performance Optimization: Collect all tag-text pairs for a single insert call
+                    # This reduces IPC overhead between Python and the Tcl interpreter
+                    inserts.extend([f"[{batch_timestamp}] ", "timestamp", f"{message}\n", level])
                     messages_processed += 1
                 except queue.Empty:
                     break
+
+            if inserts:
+                self.output_text.config(state=tk.NORMAL)
+                self.output_text.insert(tk.END, *inserts)
         finally:
             if messages_processed > 0:
                 # Batch UI updates: Scroll and disable once per batch
@@ -1848,9 +1858,12 @@ Use Help menu to access guides and export files."""
             self.update_icon_preview()
 
     def update_icon_preview(self):
-        """Update the icon preview when source image changes."""
+        """Update the icon preview when source image changes with efficiency checks and fast resampling."""
         source_path = self.source_image_entry.get().strip()
-        if source_path and os.path.exists(source_path):
+
+        # Performance Optimization: Only proceed if the path is actually a file.
+        # This avoids unnecessary attempts to open directories or partial paths.
+        if source_path and os.path.isfile(source_path):
             try:
                 # Clear existing preview
                 for widget in self.preview_frame.winfo_children():
@@ -1858,8 +1871,9 @@ Use Help menu to access guides and export files."""
 
                 # Create preview
                 with Image.open(source_path) as img:
-                    # Create a small preview
-                    preview_img = img.resize((80, 80), Image.Resampling.LANCZOS)
+                    # Performance Optimization: Use BOX resampling for fast thumbnail generation.
+                    # BOX is significantly faster than LANCZOS for small previews.
+                    preview_img = img.resize((80, 80), Image.Resampling.BOX)
                     preview_photo = ImageTk.PhotoImage(preview_img)
 
                     preview_label = tk.Label(self.preview_frame, image=preview_photo,
@@ -2028,20 +2042,14 @@ Use Help menu to access guides and export files."""
         elif shape == 'hexagon':
             center = size // 2
             radius = center - 5
-            points = []
-            for i in range(6):
-                angle = math.radians(60 * i)
-                points.append((center + radius * math.cos(angle), center + radius * math.sin(angle)))
+            # Performance Optimization: Use pre-calculated vertices to avoid trigonometric calculations
+            points = [(center + radius * x, center + radius * y) for x, y in self.HEX_VERTICES]
             draw.polygon(points, fill=255)
         elif shape == 'star':
             center = size // 2
-            outer_radius = center - 5
-            inner_radius = outer_radius * 0.4
-            points = []
-            for i in range(10):
-                angle = math.radians(36 * i - 90)
-                radius = outer_radius if i % 2 == 0 else inner_radius
-                points.append((center + radius * math.cos(angle), center + radius * math.sin(angle)))
+            radius = center - 5
+            # Performance Optimization: Use pre-calculated vertices to avoid trigonometric calculations
+            points = [(center + radius * x, center + radius * y) for x, y in self.STAR_VERTICES]
             draw.polygon(points, fill=255)
         elif shape == 'diamond':
             center = size // 2
@@ -2108,6 +2116,12 @@ Use Help menu to access guides and export files."""
                         yield entry.path
                         count += 1
                     elif entry.is_dir():
+                        # Performance Optimization: Skip hidden and common large or irrelevant directories
+                        # to significantly reduce filesystem I/O and traversal time.
+                        name = entry.name.lower()
+                        if name.startswith('.') or name in ('node_modules', 'venv', '.venv', '__pycache__', 'build', 'dist', 'target'):
+                            continue
+
                         # Recursively search subdirectories
                         for icon in self._iter_icons(entry.path, extensions, limit - count):
                             yield icon
@@ -2169,7 +2183,8 @@ Use Help menu to access guides and export files."""
             try:
                 # Create icon preview
                 with Image.open(icon_path) as img:
-                    img.thumbnail((64, 64), Image.Resampling.LANCZOS)
+                    # Performance Optimization: Use BOX resampling for fast thumbnail generation.
+                    img.thumbnail((64, 64), Image.Resampling.BOX)
                     icon_photo = ImageTk.PhotoImage(img)
 
                     icon_btn = tk.Button(icon_frame,
