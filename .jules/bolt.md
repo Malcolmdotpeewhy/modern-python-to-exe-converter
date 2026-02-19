@@ -39,3 +39,6 @@
 1. Hoist all Tkinter widget/variable state reads outside of performance-critical loops.
 2. Batch UI updates and cache expensive string formatting (like timestamps) in logging systems.
 3. Use shared class methods for widget event bindings to reduce memory allocation from unique closures.
+## 2026-02-10 - [Memory Leak] Identity Verification for ID-based Caching
+**Learning:** Using `id()` in cache keys is dangerous for short-lived objects because IDs are reused, leading to incorrect cache hits. Standard dicts also lead to unbounded memory leaks if keys are never evicted.
+**Action:** Implement LRU caching using `OrderedDict` and store a `weakref` to the original object to verify identity on hit, ensuring both memory safety and correctness.

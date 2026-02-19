@@ -6,6 +6,8 @@ import sys
 import threading
 from PIL import Image, ImageTk, ImageDraw, ImageFilter
 import json
+import weakref
+from collections import OrderedDict
 from pathlib import Path
 import shutil
 from datetime import datetime
@@ -53,6 +55,10 @@ except ImportError:
 class ModernPy2ExeConverter:
     """Modern Python to EXE Converter with enhanced GUI and icon management."""
 
+    # Performance Optimization: Define cache limits for memory management
+    MAX_SHAPED_ICONS = 100
+    MAX_MASK_CACHE = 50
+
     def __init__(self):
         """Initialize the main application window with modern styling."""
         self.root = tk.Tk()
@@ -76,19 +82,18 @@ class ModernPy2ExeConverter:
         # Initialize variables
         self.selected_icon = tk.StringVar()
         self.conversion_settings = {}
-        self.icon_cache = {}
         self.last_created_icon = None  # Track last created icon for auto-selection
 
         # Initialize thread-safe log queue
         self.log_queue = queue.Queue()
         self._process_log_queue()
 
-        # Cache for mousewheel scroll targets to improve performance
-        self._scroll_target_cache = {}
+        # Performance Optimization: Use WeakKeyDictionary for scroll target cache to avoid leaks
+        self._scroll_target_cache = weakref.WeakKeyDictionary()
 
-        # Caches for icon generation to improve performance
-        self.shaped_icons_cache = {}
-        self._mask_cache = {}
+        # Performance Optimization: Use OrderedDict for LRU caches to bound memory usage
+        self.shaped_icons_cache = OrderedDict()
+        self._mask_cache = OrderedDict()
         self._pyinstaller_version = None
 
 
@@ -2015,6 +2020,7 @@ Use Help menu to access guides and export files."""
         # Create a stable cache key based on shape, size and additional arguments
         mask_key = (shape, size, tuple(sorted(kwargs.items())))
         if mask_key in self._mask_cache:
+            self._mask_cache.move_to_end(mask_key)
             return self._mask_cache[mask_key]
 
         mask = Image.new('L', (size, size), 0)
@@ -2052,23 +2058,32 @@ Use Help menu to access guides and export files."""
             draw.rounded_rectangle([0, 0, size - 1, size - 1], radius=radius, fill=255)
 
         self._mask_cache[mask_key] = mask
+        if len(self._mask_cache) > self.MAX_MASK_CACHE:
+            self._mask_cache.popitem(last=False)
+
         return mask
 
     def create_shaped_icon(self, image, shape, size):
         """Create an icon with the specified shape using caching and optimized alpha application."""
-        # Performance Optimization: Use image identity in cache key for fast lookups
+        # Performance Optimization: Use image identity in cache key with identity verification
         cache_key = (id(image), shape, size)
         if cache_key in self.shaped_icons_cache:
-            return self.shaped_icons_cache[cache_key]
+            img, ref = self.shaped_icons_cache[cache_key]
+            if ref() is image:
+                self.shaped_icons_cache.move_to_end(cache_key)
+                return img
+            # If identity verification fails (ID reuse), remove the stale entry
+            del self.shaped_icons_cache[cache_key]
 
         # Performance Optimization: Skip resize if already at target size
         if image.size == (size, size):
-            img = image.copy()
+            # Performance Optimization: convert('RGBA') always returns a copy,
+            # so we avoid separate copy() + convert() calls for non-RGBA sources
+            img = image.convert('RGBA')
         else:
             img = image.resize((size, size), Image.Resampling.LANCZOS)
-
-        if img.mode != 'RGBA':
-            img = img.convert('RGBA')
+            if img.mode != 'RGBA':
+                img = img.convert('RGBA')
 
         # Get mask from cache or create it
         kwargs = {}
@@ -2078,10 +2093,13 @@ Use Help menu to access guides and export files."""
         mask = self._get_shape_mask(shape, size, **kwargs)
 
         # Performance Optimization: Apply mask directly to resized image using putalpha
-        # This is faster than creating a new RGBA buffer and using paste()
         img.putalpha(mask)
 
-        self.shaped_icons_cache[cache_key] = img
+        # Store in LRU cache with identity verification to prevent memory leaks and ID reuse bugs
+        self.shaped_icons_cache[cache_key] = (img, weakref.ref(image))
+        if len(self.shaped_icons_cache) > self.MAX_SHAPED_ICONS:
+            self.shaped_icons_cache.popitem(last=False)
+
         return img
 
     def select_search_directory(self):
