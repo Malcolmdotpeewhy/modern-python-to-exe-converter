@@ -4,15 +4,16 @@ import os
 import subprocess
 import sys
 import threading
-from PIL import Image, ImageTk, ImageDraw, ImageFilter
+from PIL import Image, ImageTk, ImageDraw
 import json
+import weakref
+from collections import OrderedDict
 from pathlib import Path
-import shutil
 from datetime import datetime
 import math
 import platform
-import itertools
 import queue
+import weakref
 
 class Tooltip:
     """Enhanced tooltip for tkinter widgets."""
@@ -53,6 +54,13 @@ except ImportError:
 class ModernPy2ExeConverter:
     """Modern Python to EXE Converter with enhanced GUI and icon management."""
 
+    # Performance Optimization: Pre-calculate unit circle vertices for shapes to avoid
+    # redundant trigonometric calculations during mask generation.
+    HEX_VERTICES = [(math.cos(math.radians(60 * i)), math.sin(math.radians(60 * i))) for i in range(6)]
+    STAR_VERTICES = [((1.0 if i % 2 == 0 else 0.4) * math.cos(math.radians(36 * i - 90)),
+                      (1.0 if i % 2 == 0 else 0.4) * math.sin(math.radians(36 * i - 90)))
+                     for i in range(10)]
+
     def __init__(self):
         """Initialize the main application window with modern styling."""
         self.root = tk.Tk()
@@ -76,34 +84,21 @@ class ModernPy2ExeConverter:
         # Initialize variables
         self.selected_icon = tk.StringVar()
         self.conversion_settings = {}
-        self.icon_cache = {}
         self.last_created_icon = None  # Track last created icon for auto-selection
 
         # Initialize thread-safe log queue
         self.log_queue = queue.Queue()
         self._process_log_queue()
 
-        # Cache for mousewheel scroll targets to improve performance
-        self._scroll_target_cache = {}
+        # Performance Optimization: Use WeakKeyDictionary for mousewheel scroll targets
+        # to ensure destroyed widgets can be garbage collected from the cache.
+        self._scroll_target_cache = weakref.WeakKeyDictionary()
 
-        # Cache for PyInstaller version to avoid repeated subprocess calls
+        # Performance Optimization: Use OrderedDict for LRU caches to bound memory usage
+        self.shaped_icons_cache = OrderedDict()
+        self._mask_cache = OrderedDict()
         self._pyinstaller_version = None
 
-        # Default directories (Desktop)
-        desktop_path = os.path.join(os.path.expanduser("~"), "Desktop")
-        self.default_settings = {
-            'default_output_dir': desktop_path,
-            'default_icon_output_dir': desktop_path,
-            'auto_select_created_icons': True,
-            'show_icon_notifications': True,
-            'window_transparency': 0.95,
-            'theme': 'dark',
-            'font_size': 10,
-            'corner_radius': 10
-        }
-
-        # Load user settings
-        self.load_settings()
 
         # Icon shape options (all with rounded corners)
         self.icon_shapes = {
@@ -139,37 +134,55 @@ class ModernPy2ExeConverter:
         return Tooltip(widget, text)
 
     def _process_log_queue(self):
-        """Process messages in the log queue to avoid UI thread blocking and ensure thread safety."""
+        """Process messages in the log queue with batched UI updates for better performance."""
+        if not hasattr(self, 'output_text') or not self.output_text:
+            self.root.after(100, self._process_log_queue)
+            return
+
+        messages_processed = 0
+        batch_timestamp = None
+        inserts = []
+
         try:
-            # Process multiple messages at once to improve performance
+            # Optimization: Process up to 25 messages per tick to minimize UI thread overhead
             for _ in range(25):
                 try:
                     message, level = self.log_queue.get_nowait()
-                    self._do_write_log(message, level)
+
+                    # Performance Optimization: Calculate timestamp once per batch to avoid redundant calls
+                    if messages_processed == 0:
+                        batch_timestamp = datetime.now().strftime("%H:%M:%S")
+
+                    # Performance Optimization: Collect all tag-text pairs for a single insert call
+                    # This reduces IPC overhead between Python and the Tcl interpreter
+                    inserts.extend([f"[{batch_timestamp}] ", "timestamp", f"{message}\n", level])
+                    messages_processed += 1
                 except queue.Empty:
                     break
+
+            if inserts:
+                self.output_text.config(state=tk.NORMAL)
+                self.output_text.insert(tk.END, *inserts)
         finally:
+            if messages_processed > 0:
+                # Batch UI updates: Scroll and disable once per batch
+                self.output_text.see(tk.END)
+                self.output_text.config(state=tk.DISABLED)
+
             # Schedule next check
             self.root.after(100, self._process_log_queue)
 
     def _do_write_log(self, message, level):
         """Actually write to the log widget. Should only be called from the main UI thread."""
-        if not hasattr(self, 'output_text'):
+        # Note: Most logging now goes through the batched _process_log_queue
+        if not hasattr(self, 'output_text') or not self.output_text:
             return
 
         timestamp = datetime.now().strftime("%H:%M:%S")
-
-        # Enable text widget temporarily
         self.output_text.config(state=tk.NORMAL)
-
-        # Insert timestamp and message
         self.output_text.insert(tk.END, f"[{timestamp}] ", "timestamp")
         self.output_text.insert(tk.END, f"{message}\n", level)
-
-        # Auto-scroll to bottom
         self.output_text.see(tk.END)
-
-        # Disable text widget
         self.output_text.config(state=tk.DISABLED)
 
     def setup_theme_system(self):
@@ -397,6 +410,11 @@ class ModernPy2ExeConverter:
         text_font.configure(family="Segoe UI", size=self.base_font_size)
         fixed_font = tkfont.nametofont("TkFixedFont")
         fixed_font.configure(family="Cascadia Code", size=max(self.base_font_size - 1, 9))
+
+        # Performance Optimization: Pre-calculate and cache font tuples to avoid redundant allocations
+        self.font_normal = ("Segoe UI", self.base_font_size)
+        self.font_semibold = ("Segoe UI Semibold", self.base_font_size)
+        self.font_title = ("Segoe UI Semibold", self.base_font_size + 2)
         self.mono_font = (fixed_font.cget("family"), fixed_font.cget("size"))
         
         # Configure enhanced styles
@@ -409,7 +427,7 @@ class ModernPy2ExeConverter:
                        padding=[22, 10],
                        focuscolor='none',
                        borderwidth=0,
-                       font=('Segoe UI Semibold', self.base_font_size))
+                       font=self.font_semibold)
         style.map('TNotebook.Tab',
                  background=[('selected', self.colors['accent']),
                             ('active', self.colors['accent_hover'])],
@@ -425,11 +443,11 @@ class ModernPy2ExeConverter:
         style.configure('TLabelframe.Label',
                        background=self.colors['surface'],
                        foreground=self.colors['fg'],
-                       font=('Segoe UI Semibold', self.base_font_size))
+                       font=self.font_semibold)
         style.configure('TLabel', 
                        background=self.colors['surface'],
                        foreground=self.colors['fg'],
-                       font=('Segoe UI', self.base_font_size))
+                       font=self.font_normal)
         style.configure('TCombobox',
                        fieldbackground=self.colors['card'],
                        background=self.colors['surface'],
@@ -452,6 +470,44 @@ class ModernPy2ExeConverter:
                        borderwidth=0,
                        lightcolor=self.colors['accent'],
                        darkcolor=self.colors['accent'])
+
+        # Update cached button configurations
+        self._update_button_config()
+
+    def _update_button_config(self):
+        """Pre-calculate and cache button styles and sizes to improve performance."""
+        self.BUTTON_STYLES = {
+            'default': {
+                'bg': self.colors['card'],
+                'hover': self.colors['surface'],
+                'fg': self.colors['fg']
+            },
+            'primary': {
+                'bg': self.colors['accent'],
+                'hover': self.colors['accent_hover'],
+                'fg': 'white'
+            },
+            'success': {
+                'bg': self.colors['success'],
+                'hover': '#16a34a',
+                'fg': 'white'
+            },
+            'warning': {
+                'bg': self.colors['warning'],
+                'hover': '#d97706',
+                'fg': 'white'
+            },
+            'danger': {
+                'bg': self.colors['error'],
+                'hover': '#dc2626',
+                'fg': 'white'
+            }
+        }
+
+        self.BUTTON_SIZES = {
+            'normal': {'font': self.font_semibold, 'pady': 8, 'padx': 20},
+            'large': {'font': self.font_title, 'pady': 12, 'padx': 30}
+        }
 
     def apply_visual_effects(self):
         """Apply visual effects to enhance the modern appearance."""
@@ -680,11 +736,18 @@ class ModernPy2ExeConverter:
 
         # Check PyInstaller button
         def check_pyinstaller():
-            version = self._get_pyinstaller_status()
-            if version:
+            if self._pyinstaller_version:
                 messagebox.showinfo("PyInstaller Status",
-                                   f"✅ PyInstaller is installed\nVersion: {version}")
-            else:
+                                   f"✅ PyInstaller is installed\nVersion: {self._pyinstaller_version}")
+                return
+
+            try:
+                result = subprocess.run(["pyinstaller", "--version"],
+                                      capture_output=True, text=True, check=True)
+                self._pyinstaller_version = result.stdout.strip()
+                messagebox.showinfo("PyInstaller Status",
+                                   f"✅ PyInstaller is installed\nVersion: {self._pyinstaller_version}")
+            except (FileNotFoundError, subprocess.CalledProcessError):
                 result = messagebox.askyesno("PyInstaller Not Found",
                     "❌ PyInstaller is not installed or not found in PATH.\n\n"
                     "Would you like to install it now?")
@@ -1133,6 +1196,30 @@ Use Help menu to access guides and export files."""
         # Cache that no scrollable parent was found
         self._scroll_target_cache[widget] = None
 
+    def _on_widget_enter(self, event):
+        """Shared event handler for widget enter (hover) to avoid redundant closure allocations."""
+        if hasattr(event.widget, '_hover_bg'):
+            event.widget.configure(bg=event.widget._hover_bg)
+
+    def _on_widget_leave(self, event):
+        """Shared event handler for widget leave."""
+        if hasattr(event.widget, '_normal_bg'):
+            event.widget.configure(bg=event.widget._normal_bg)
+
+    def _on_widget_focus_in(self, event):
+        """Shared event handler for widget focus in."""
+        if hasattr(event.widget, '_focus_bg'):
+            event.widget.configure(highlightbackground=event.widget._focus_bg, highlightthickness=2)
+        if hasattr(event.widget, '_focus_fg'):
+            event.widget.configure(fg=event.widget._focus_fg)
+
+    def _on_widget_focus_out(self, event):
+        """Shared event handler for widget focus out."""
+        if hasattr(event.widget, '_focus_out_bg'):
+            event.widget.configure(highlightbackground=event.widget._focus_out_bg, highlightthickness=1)
+        if hasattr(event.widget, '_normal_fg'):
+            event.widget.configure(fg=event.widget._normal_fg)
+
     def _add_placeholder(self, entry, placeholder):
         """Add placeholder text to an entry widget."""
         def on_focus_in(e):
@@ -1161,42 +1248,10 @@ Use Help menu to access guides and export files."""
             self.log_output(f"Failed to copy log: {e}", "error")
 
     def create_modern_button(self, parent, text, command, side, style='default', size='normal'):
-        """Create a modern styled button with enhanced appearance."""
-        styles = {
-            'default': {
-                'bg': self.colors['card'],
-                'hover': self.colors['surface'],
-                'fg': self.colors['fg']
-            },
-            'primary': {
-                'bg': self.colors['accent'],
-                'hover': self.colors['accent_hover'],
-                'fg': 'white'
-            },
-            'success': {
-                'bg': self.colors['success'],
-                'hover': '#16a34a',
-                'fg': 'white'
-            },
-            'warning': {
-                'bg': self.colors['warning'],
-                'hover': '#d97706',
-                'fg': 'white'
-            },
-            'danger': {
-                'bg': self.colors['error'],
-                'hover': '#dc2626',
-                'fg': 'white'
-            }
-        }
-        
-        sizes = {
-            'normal': {'font': ('Segoe UI Semibold', self.base_font_size), 'pady': 8, 'padx': 20},
-            'large': {'font': ('Segoe UI Semibold', self.base_font_size + 2), 'pady': 12, 'padx': 30}
-        }
-
-        style_config = styles.get(style, styles['default'])
-        size_config = sizes.get(size, sizes['normal'])
+        """Create a modern styled button using cached configurations for better performance."""
+        # Performance Optimization: Use pre-calculated button styles and sizes
+        style_config = self.BUTTON_STYLES.get(style, self.BUTTON_STYLES['default'])
+        size_config = self.BUTTON_SIZES.get(size, self.BUTTON_SIZES['normal'])
 
         btn = tk.Button(parent,
                        text=text,
@@ -1216,20 +1271,16 @@ Use Help menu to access guides and export files."""
                        relief='flat')
         btn.pack(side=side, padx=10)
 
-        # Enhanced hover effects and focus indicators
-        def on_enter(e):
-            btn.configure(bg=style_config['hover'])
-        def on_leave(e):
-            btn.configure(bg=style_config['bg'])
-        def on_focus_in(e):
-            btn.configure(highlightbackground=self.colors['accent'], highlightthickness=2)
-        def on_focus_out(e):
-            btn.configure(highlightbackground=self.colors['border'], highlightthickness=1)
+        # Performance Optimization: Use shared class methods instead of redundant closure allocations
+        btn._normal_bg = style_config['bg']
+        btn._hover_bg = style_config['hover']
+        btn._focus_bg = self.colors['accent']
+        btn._focus_out_bg = self.colors['border']
 
-        btn.bind("<Enter>", on_enter)
-        btn.bind("<Leave>", on_leave)
-        btn.bind("<FocusIn>", on_focus_in)
-        btn.bind("<FocusOut>", on_focus_out)
+        btn.bind("<Enter>", self._on_widget_enter)
+        btn.bind("<Leave>", self._on_widget_leave)
+        btn.bind("<FocusIn>", self._on_widget_focus_in)
+        btn.bind("<FocusOut>", self._on_widget_focus_out)
 
         return btn
 
@@ -1249,26 +1300,31 @@ Use Help menu to access guides and export files."""
                            highlightcolor=self.colors['accent'],
                            cursor='hand2')
 
-        def on_focus_in(e):
-            cb.configure(fg=self.colors['accent'])
-        def on_focus_out(e):
-            cb.configure(fg=self.colors['fg'])
+        # Performance Optimization: Use shared class methods
+        cb._focus_fg = self.colors['accent']
+        cb._normal_fg = self.colors['fg']
 
-        cb.bind("<FocusIn>", on_focus_in)
-        cb.bind("<FocusOut>", on_focus_out)
+        cb.bind("<FocusIn>", self._on_widget_focus_in)
+        cb.bind("<FocusOut>", self._on_widget_focus_out)
         return cb
 
     # File and directory selection methods
     def select_files(self):
-        """Select multiple Python files to convert."""
+        """Select multiple Python files to convert with O(1) duplicate checks and batch insertion."""
         files = filedialog.askopenfilenames(
             filetypes=[("Python Files", "*.py"), ("All files", "*.*")],
             title="Select Python Files to Convert"
         )
-        for file in files:
-            if file not in self.files_listbox.get(0, tk.END):
-                self.files_listbox.insert(tk.END, file)
-                self.log_output(f"Added file: {os.path.basename(file)}", "info")
+        if files:
+            # Optimization: Use a set for O(1) duplicate checks
+            current_files = set(self.files_listbox.get(0, tk.END))
+            new_files = [f for f in files if f not in current_files]
+
+            if new_files:
+                # Performance Optimization: Batch insertion into listbox reduces IPC overhead
+                self.files_listbox.insert(tk.END, *new_files)
+                for file in new_files:
+                    self.log_output(f"Added file: {os.path.basename(file)}", "info")
 
     def remove_selected(self, listbox):
         """Remove selected items from a listbox."""
@@ -1441,12 +1497,13 @@ Use Help menu to access guides and export files."""
             else:
                 warnings.append("Using default Python icon (no custom icon specified)")
 
-        # Check PyInstaller availability
-        try:
-            subprocess.run(["pyinstaller", "--version"], check=True,
-                          stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        except (FileNotFoundError, subprocess.CalledProcessError):
-            warnings.append("PyInstaller not found - will attempt to install")
+        # Check PyInstaller availability (using cache if available)
+        if not self._pyinstaller_version:
+            try:
+                result = subprocess.run(["pyinstaller", "--version"], capture_output=True, text=True, check=True)
+                self._pyinstaller_version = result.stdout.strip()
+            except (FileNotFoundError, subprocess.CalledProcessError):
+                warnings.append("PyInstaller not found - will attempt to install")
 
         # Display results
         if errors:
@@ -1508,10 +1565,14 @@ Use Help menu to access guides and export files."""
         files = list(self.files_listbox.get(0, tk.END))
         output_dir = self.output_entry.get().strip()
 
-        # Check and install PyInstaller if necessary
-        if not self._get_pyinstaller_status():
-            if not self.install_pyinstaller():
-                return
+        # Check and install PyInstaller if necessary (using cache if available)
+        if not self._pyinstaller_version:
+            try:
+                result = subprocess.run(["pyinstaller", "--version"], capture_output=True, text=True, check=True)
+                self._pyinstaller_version = result.stdout.strip()
+            except (FileNotFoundError, subprocess.CalledProcessError):
+                if not self.install_pyinstaller():
+                    return
 
         # Disable convert button and start progress
         self.convert_btn.config(state=tk.DISABLED, text="🔄 Converting...")
@@ -1526,33 +1587,39 @@ Use Help menu to access guides and export files."""
                 # Create output directory if it doesn't exist
                 os.makedirs(output_dir, exist_ok=True)
 
+                # Performance Optimization: Extract loop-invariant configurations before processing loop
+                # This minimizes redundant Tcl interpreter calls and filesystem checks during batch conversions
+                use_onefile = self.onefile_var.get()
+                use_noconsole = self.noconsole_var.get()
+                use_debug = self.debug_var.get()
+                icon_file = self.icon_entry.get().strip()
+                icon_valid = icon_file and os.path.exists(icon_file)
+                hidden_imports_list = list(self.hidden_listbox.get(0, tk.END))
+
+                # Optimization: Single UI update before loop instead of every iteration
+                self.root.after(0, lambda: self.convert_btn.config(text="⏳ Converting..."))
+
                 for i, file in enumerate(files):
                     try:
-                        # Dynamic button feedback
-                        self.convert_btn.config(text="⏳ Converting...")
-                        self.root.update()
-
                         self.log_output(f"Converting {os.path.basename(file)}...", "info")
 
                         # Build PyInstaller command
                         cmd = ["pyinstaller"]
 
                         # Add options
-                        if self.onefile_var.get():
+                        if use_onefile:
                             cmd.append("--onefile")
-                        if self.noconsole_var.get():
+                        if use_noconsole:
                             cmd.append("--noconsole")
-                        if self.debug_var.get():
+                        if use_debug:
                             cmd.append("--debug")
 
                         # Add icon
-                        icon_file = self.icon_entry.get().strip()
-                        if icon_file and os.path.exists(icon_file):
+                        if icon_valid:
                             cmd.extend(["--icon", icon_file])
 
                         # Add hidden imports
-                        hidden_imports = self.hidden_listbox.get(0, tk.END)
-                        for hidden in hidden_imports:
+                        for hidden in hidden_imports_list:
                             cmd.extend(["--hidden-import", hidden])
 
                         # Set output directory
@@ -1570,9 +1637,8 @@ Use Help menu to access guides and export files."""
                         self.log_output(f"✅ Successfully converted {os.path.basename(file)}", "success")
                         successful_conversions += 1
 
-                        # Update progress
-                        self.progress_var.set(i + 1)
-                        self.root.update_idletasks()
+                        # Optimization: Use root.after for thread-safe UI updates
+                        self.root.after(0, lambda v=i+1: self.progress_var.set(v))
 
                     except subprocess.CalledProcessError as e:
                         error_msg = f"❌ Error converting {os.path.basename(file)}: {e}"
@@ -1586,23 +1652,23 @@ Use Help menu to access guides and export files."""
                 # Final summary
                 if successful_conversions > 0:
                     self.log_output(f"🎉 Conversion completed! {successful_conversions}/{len(files)} files converted successfully.", "success")
-                    messagebox.showinfo("Conversion Complete",
-                                       f"Successfully converted {successful_conversions} out of {len(files)} files.\n\n"
-                                       f"Output directory: {output_dir}")
+                    msg = f"Successfully converted {successful_conversions} out of {len(files)} files.\n\nOutput directory: {output_dir}"
+                    self.root.after(0, lambda m=msg: messagebox.showinfo("Conversion Complete", m))
                 else:
                     self.log_output("❌ Conversion failed for all files.", "error")
-                    messagebox.showerror("Conversion Failed", "No files were successfully converted.")
+                    self.root.after(0, lambda: messagebox.showerror("Conversion Failed", "No files were successfully converted."))
 
             except Exception as e:
                 error_msg = f"❌ Critical error during conversion: {e}"
                 self.log_output(error_msg, "error")
-                messagebox.showerror("Critical Error", error_msg)
+                self.root.after(0, lambda m=error_msg: messagebox.showerror("Critical Error", m))
 
             finally:
-                # Re-enable convert button and reset progress
-                self.convert_btn.config(state=tk.NORMAL, text="🔄 Convert to EXE")
-                self.progress_var.set(0)
-                self.status_label.config(text="Conversion completed")
+                # Optimization: Ensure all final UI updates are scheduled on the main thread
+                self.root.after(0, lambda: self.convert_btn.config(state=tk.NORMAL, text="🔄 Convert to EXE"))
+                self.root.after(0, lambda: self.progress_var.set(0))
+                if hasattr(self, 'status_label'):
+                    self.root.after(0, lambda: self.status_label.config(text="Conversion completed"))
 
         # Run conversion in a separate thread
         threading.Thread(target=run_conversion, daemon=True).start()
@@ -1813,9 +1879,12 @@ Use Help menu to access guides and export files."""
             self.update_icon_preview()
 
     def update_icon_preview(self):
-        """Update the icon preview when source image changes."""
+        """Update the icon preview when source image changes with efficiency checks and fast resampling."""
         source_path = self.source_image_entry.get().strip()
-        if source_path and os.path.exists(source_path):
+
+        # Performance Optimization: Only proceed if the path is actually a file.
+        # This avoids unnecessary attempts to open directories or partial paths.
+        if source_path and os.path.isfile(source_path):
             try:
                 # Clear existing preview
                 for widget in self.preview_frame.winfo_children():
@@ -1823,8 +1892,9 @@ Use Help menu to access guides and export files."""
 
                 # Create preview
                 with Image.open(source_path) as img:
-                    # Create a small preview
-                    preview_img = img.resize((80, 80), Image.Resampling.LANCZOS)
+                    # Performance Optimization: Use BOX resampling for fast thumbnail generation.
+                    # BOX is significantly faster than LANCZOS for small previews.
+                    preview_img = img.resize((80, 80), Image.Resampling.BOX)
                     preview_photo = ImageTk.PhotoImage(preview_img)
 
                     preview_label = tk.Label(self.preview_frame, image=preview_photo,
@@ -1897,16 +1967,27 @@ Use Help menu to access guides and export files."""
                         self.log_output(f"Optimizing: Pre-resizing source image to {max_size}x{max_size}...", "info")
                     working_img = img.resize((max_size, max_size), Image.Resampling.LANCZOS)
 
-                # Performance Optimization: Cache shaped icons to avoid redundant processing
-                shaped_icons_cache = {}
+                # Performance Optimization: Sort sizes in descending order for progressive resizing
+                # This significantly reduces computational load by resizing from the next largest image.
+                # Quality Optimization: We maintain an unmasked source for resizing to prevent quality loss
+                # and redundant alpha-channel processing during progressive downscaling.
+                sorted_sizes = sorted(sizes, reverse=True)
+                size_to_shaped_img = {}
+                current_unmasked = working_img
 
-                # Create each size with the selected shape
-                for size_str in selected_sizes:
-                    size = int(size_str.split('x')[0])
+                for size in sorted_sizes:
+                    # 1. Resize the unmasked image to target size
+                    if current_unmasked.size == (size, size):
+                        resized_unmasked = current_unmasked
+                    else:
+                        resized_unmasked = current_unmasked.resize((size, size), Image.Resampling.LANCZOS)
 
-                    # Create shaped icon and store in cache
-                    shaped_icon = self.create_shaped_icon(working_img, shape_key, size)
-                    shaped_icons_cache[size] = shaped_icon
+                    # 2. Apply shape/mask to the correctly-sized unmasked image (create_shaped_icon handles the masking)
+                    shaped_icon = self.create_shaped_icon(resized_unmasked, shape_key, size)
+                    size_to_shaped_img[size] = shaped_icon
+
+                    # 3. Use this unmasked resized image as source for the next smaller size
+                    current_unmasked = resized_unmasked
 
                     # Save as ICO
                     ico_path = os.path.join(output_dir, f"{base_name}_{shape_key}_{size}x{size}.ico")
@@ -1919,8 +2000,8 @@ Use Help menu to access guides and export files."""
                 # Create multi-size ICO with shape
                 multi_ico_path = os.path.join(output_dir, f"{base_name}_{shape_key}_multi.ico")
 
-                # Use cached icons for multi-size ICO to avoid redundant regeneration
-                shaped_icons = [shaped_icons_cache.get(s) or self.create_shaped_icon(working_img, shape_key, s) for s in sizes]
+                # Use pre-calculated icons for multi-size ICO
+                shaped_icons = [size_to_shaped_img[s] for s in sizes]
 
                 if shaped_icons:
                     shaped_icons[0].save(multi_ico_path, format='ICO',
@@ -1964,142 +2045,86 @@ Use Help menu to access guides and export files."""
                 self.log_output(error_msg, "error")
             messagebox.showerror("Icon Creation Error", error_msg)
 
-    def create_shaped_icon(self, image, shape, size):
-        """Create an icon with the specified shape."""
-        # Resize image to target size
-        img = image.resize((size, size), Image.Resampling.LANCZOS)
+    def _get_shape_mask(self, shape, size, **kwargs):
+        """Create and cache a shape mask to improve performance."""
+        # Create a stable cache key based on shape, size and additional arguments
+        mask_key = (shape, size, tuple(sorted(kwargs.items())))
+        if mask_key in self._mask_cache:
+            self._mask_cache.move_to_end(mask_key)
+            return self._mask_cache[mask_key]
 
-        if shape == 'square':
-            # Square with rounded corners
-            return self.create_rounded_icon(img, size // 8)
-        elif shape == 'circle':
-            return self.create_circle_icon(img)
+        mask = Image.new('L', (size, size), 0)
+        draw = ImageDraw.Draw(mask)
+
+        if shape == 'circle':
+            draw.ellipse([0, 0, size - 1, size - 1], fill=255)
         elif shape == 'triangle':
-            return self.create_triangle_icon(img)
+            points = [(size // 2, 5), (5, size - 5), (size - 5, size - 5)]
+            draw.polygon(points, fill=255)
         elif shape == 'hexagon':
-            return self.create_hexagon_icon(img)
+            center = size // 2
+            radius = center - 5
+            # Performance Optimization: Use pre-calculated vertices to avoid trigonometric calculations
+            points = [(center + radius * x, center + radius * y) for x, y in self.HEX_VERTICES]
+            draw.polygon(points, fill=255)
         elif shape == 'star':
-            return self.create_star_icon(img)
+            center = size // 2
+            radius = center - 5
+            # Performance Optimization: Use pre-calculated vertices to avoid trigonometric calculations
+            points = [(center + radius * x, center + radius * y) for x, y in self.STAR_VERTICES]
+            draw.polygon(points, fill=255)
         elif shape == 'diamond':
-            return self.create_diamond_icon(img)
+            center = size // 2
+            points = [(center, 5), (size - 5, center), (center, size - 5), (5, center)]
+            draw.polygon(points, fill=255)
+        else:  # 'square' or default
+            radius = kwargs.get('radius', size // 8)
+            draw.rounded_rectangle([0, 0, size - 1, size - 1], radius=radius, fill=255)
 
-        return self.create_rounded_icon(img, size // 8)  # Default with rounded corners
+        self._mask_cache[mask_key] = mask
+        if len(self._mask_cache) > self.MAX_MASK_CACHE:
+            self._mask_cache.popitem(last=False)
 
-    def create_rounded_icon(self, img, radius):
-        """Create a rounded rectangle icon."""
-        size = img.size[0]
-        mask = Image.new('L', (size, size), 0)
-        draw = ImageDraw.Draw(mask)
-        draw.rounded_rectangle([0, 0, size-1, size-1], radius=radius, fill=255)
+        return mask
 
-        result = Image.new('RGBA', (size, size), (0, 0, 0, 0))
-        result.paste(img, (0, 0))
-        result.putalpha(mask)
-        return result
+    def create_shaped_icon(self, image, shape, size):
+        """Create an icon with the specified shape using caching and optimized alpha application."""
+        # Performance Optimization: Use image identity in cache key with identity verification
+        cache_key = (id(image), shape, size)
+        if cache_key in self.shaped_icons_cache:
+            img, ref = self.shaped_icons_cache[cache_key]
+            if ref() is image:
+                self.shaped_icons_cache.move_to_end(cache_key)
+                return img
+            # If identity verification fails (ID reuse), remove the stale entry
+            del self.shaped_icons_cache[cache_key]
 
-    def create_circle_icon(self, img):
-        """Create a circular icon."""
-        size = img.size[0]
-        mask = Image.new('L', (size, size), 0)
-        draw = ImageDraw.Draw(mask)
-        draw.ellipse([0, 0, size-1, size-1], fill=255)
+        # Performance Optimization: Skip resize if already at target size
+        if image.size == (size, size):
+            # Performance Optimization: convert('RGBA') always returns a copy,
+            # so we avoid separate copy() + convert() calls for non-RGBA sources
+            img = image.convert('RGBA')
+        else:
+            img = image.resize((size, size), Image.Resampling.LANCZOS)
+            if img.mode != 'RGBA':
+                img = img.convert('RGBA')
 
-        result = Image.new('RGBA', (size, size), (0, 0, 0, 0))
-        result.paste(img, (0, 0))
-        result.putalpha(mask)
-        return result
+        # Get mask from cache or create it
+        kwargs = {}
+        if shape not in ['circle', 'triangle', 'hexagon', 'star', 'diamond']:
+            kwargs['radius'] = size // 8
 
-    def create_triangle_icon(self, img):
-        """Create a triangular icon."""
-        size = img.size[0]
-        mask = Image.new('L', (size, size), 0)
-        draw = ImageDraw.Draw(mask)
+        mask = self._get_shape_mask(shape, size, **kwargs)
 
-        # Equilateral triangle with rounded corners effect
-        points = [
-            (size // 2, 5),  # Top
-            (5, size - 5),   # Bottom left
-            (size - 5, size - 5)  # Bottom right
-        ]
-        draw.polygon(points, fill=255)
+        # Performance Optimization: Apply mask directly to resized image using putalpha
+        img.putalpha(mask)
 
-        result = Image.new('RGBA', (size, size), (0, 0, 0, 0))
-        result.paste(img, (0, 0))
-        result.putalpha(mask)
-        return result
+        # Store in LRU cache with identity verification to prevent memory leaks and ID reuse bugs
+        self.shaped_icons_cache[cache_key] = (img, weakref.ref(image))
+        if len(self.shaped_icons_cache) > self.MAX_SHAPED_ICONS:
+            self.shaped_icons_cache.popitem(last=False)
 
-    def create_hexagon_icon(self, img):
-        """Create a hexagonal icon."""
-        size = img.size[0]
-        mask = Image.new('L', (size, size), 0)
-        draw = ImageDraw.Draw(mask)
-
-        # Regular hexagon
-        center = size // 2
-        radius = center - 5
-        points = []
-        for i in range(6):
-            angle = math.radians(60 * i)
-            x = center + radius * math.cos(angle)
-            y = center + radius * math.sin(angle)
-            points.append((x, y))
-
-        draw.polygon(points, fill=255)
-
-        result = Image.new('RGBA', (size, size), (0, 0, 0, 0))
-        result.paste(img, (0, 0))
-        result.putalpha(mask)
-        return result
-
-    def create_star_icon(self, img):
-        """Create a star-shaped icon."""
-        size = img.size[0]
-        mask = Image.new('L', (size, size), 0)
-        draw = ImageDraw.Draw(mask)
-
-        # 5-pointed star
-        center = size // 2
-        outer_radius = center - 5
-        inner_radius = outer_radius * 0.4
-
-        points = []
-        for i in range(10):
-            angle = math.radians(36 * i - 90)  # Start from top
-            if i % 2 == 0:  # Outer points
-                radius = outer_radius
-            else:  # Inner points
-                radius = inner_radius
-            x = center + radius * math.cos(angle)
-            y = center + radius * math.sin(angle)
-            points.append((x, y))
-
-        draw.polygon(points, fill=255)
-
-        result = Image.new('RGBA', (size, size), (0, 0, 0, 0))
-        result.paste(img, (0, 0))
-        result.putalpha(mask)
-        return result
-
-    def create_diamond_icon(self, img):
-        """Create a diamond-shaped icon."""
-        size = img.size[0]
-        mask = Image.new('L', (size, size), 0)
-        draw = ImageDraw.Draw(mask)
-
-        # Diamond (rotated square)
-        center = size // 2
-        points = [
-            (center, 5),          # Top
-            (size - 5, center),   # Right
-            (center, size - 5),   # Bottom
-            (5, center)           # Left
-        ]
-        draw.polygon(points, fill=255)
-
-        result = Image.new('RGBA', (size, size), (0, 0, 0, 0))
-        result.paste(img, (0, 0))
-        result.putalpha(mask)
-        return result
+        return img
 
     def select_search_directory(self):
         """Select directory to search for icons."""
@@ -2112,8 +2137,36 @@ Use Help menu to access guides and export files."""
             self.search_entry.delete(0, tk.END)
             self.search_entry.insert(0, directory)
 
+    def _iter_icons(self, directory, extensions, limit):
+        """Internal recursive generator for efficient icon discovery using os.scandir."""
+        # Performance Optimization: Yield string paths directly instead of Path objects to minimize overhead
+        count = 0
+        try:
+            with os.scandir(directory) as it:
+                for entry in it:
+                    if count >= limit:
+                        return
+                    if entry.is_file() and entry.name.lower().endswith(extensions):
+                        yield entry.path
+                        count += 1
+                    elif entry.is_dir():
+                        # Performance Optimization: Skip hidden and common large or irrelevant directories
+                        # to significantly reduce filesystem I/O and traversal time.
+                        name = entry.name.lower()
+                        if name.startswith('.') or name in ('node_modules', 'venv', '.venv', '__pycache__', 'build', 'dist', 'target'):
+                            continue
+
+                        # Recursively search subdirectories
+                        for icon in self._iter_icons(entry.path, extensions, limit - count):
+                            yield icon
+                            count += 1
+                            if count >= limit:
+                                return
+        except (PermissionError, OSError):
+            pass
+
     def search_icons(self):
-        """Search for icon files in the specified directory using an efficient single-pass traversal."""
+        """Search for icon files in the specified directory using an efficient recursive generator."""
         search_dir = self.search_entry.get().strip()
         # Handle placeholder
         if search_dir == "Directory to search for icons...":
@@ -2130,22 +2183,13 @@ Use Help menu to access guides and export files."""
         # Hide empty state label
         self.empty_icons_label.place_forget()
 
-        # Optimization: Use single-pass os.walk and limit results for better performance
-        # This is significantly faster than multiple rglob calls on large directory trees
-        icon_files = []
+        # Performance Optimization: Use os.scandir with a recursive generator for faster traversal and immediate termination
         extensions = ('.ico', '.png', '.jpg', '.jpeg', '.bmp')
-        limit = 100  # Reasonable limit to keep the UI responsive
+        # Performance Optimization: Match search limit to display limit (20) to minimize wasted I/O
+        limit = 20
 
-        found_count = 0
-        for root, dirs, files in os.walk(search_dir):
-            for file in files:
-                if file.lower().endswith(extensions):
-                    icon_files.append(Path(root) / file)
-                    found_count += 1
-                    if found_count >= limit:
-                        break
-            if found_count >= limit:
-                break
+        icon_files = list(self._iter_icons(search_dir, extensions, limit))
+        found_count = len(icon_files)
 
         if found_count == 0:
             self.empty_icons_label.config(text="❌ No icons found in this directory.")
@@ -2173,7 +2217,8 @@ Use Help menu to access guides and export files."""
             try:
                 # Create icon preview
                 with Image.open(icon_path) as img:
-                    img.thumbnail((64, 64), Image.Resampling.LANCZOS)
+                    # Performance Optimization: Use BOX resampling for fast thumbnail generation.
+                    img.thumbnail((64, 64), Image.Resampling.BOX)
                     icon_photo = ImageTk.PhotoImage(img)
 
                     icon_btn = tk.Button(icon_frame,
