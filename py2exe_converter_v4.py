@@ -1525,13 +1525,33 @@ Use Help menu to access guides and export files."""
 
         return len(errors) == 0
 
+    def _get_pyinstaller_status(self):
+        """Get PyInstaller version with caching to improve performance."""
+        if self._pyinstaller_version is not None:
+            return self._pyinstaller_version
+
+        try:
+            result = subprocess.run(["pyinstaller", "--version"],
+                                  capture_output=True, text=True, check=True)
+            self._pyinstaller_version = result.stdout.strip()
+            return self._pyinstaller_version
+        except (FileNotFoundError, subprocess.CalledProcessError):
+            return False
+
     def install_pyinstaller(self):
         """Install PyInstaller if not available."""
         try:
             self.log_output("Installing PyInstaller...", "info")
             subprocess.check_call([sys.executable, "-m", "pip", "install", "pyinstaller"])
-            self.log_output("PyInstaller installed successfully", "success")
-            return True
+
+            # Reset cache and verify installation
+            self._pyinstaller_version = None
+            if self._get_pyinstaller_status():
+                self.log_output("PyInstaller installed successfully", "success")
+                return True
+            else:
+                raise Exception("Installation appeared successful but PyInstaller is still not found")
+
         except Exception as e:
             self.log_output(f"Failed to install PyInstaller: {e}", "error")
             messagebox.showerror("Installation Error", f"Failed to install PyInstaller: {e}")
