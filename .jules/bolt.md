@@ -39,3 +39,13 @@
 1. Hoist all Tkinter widget/variable state reads outside of performance-critical loops.
 2. Batch UI updates and cache expensive string formatting (like timestamps) in logging systems.
 3. Use shared class methods for widget event bindings to reduce memory allocation from unique closures.
+
+## 2025-06-29 - Advanced Tkinter and Filesystem Optimizations
+
+**Learning:** IPC overhead in Tkinter is a major bottleneck, particularly with `tk.Text.insert`. Batching multiple tag-text pairs into a single `insert` call is significantly faster than sequential calls. Additionally, using `weakref.WeakKeyDictionary` for widget-based caches prevents memory leaks by allowing destroyed widgets to be garbage collected. Filesystem traversal via `os.scandir` is efficient but needs explicit directory filtering (e.g., skipping `.git`, `node_modules`) to avoid processing thousands of irrelevant files.
+
+**Action:**
+1. Batch `tk.Text.insert` calls by collecting arguments in a list.
+2. Use `weakref.WeakKeyDictionary` for any cache where widgets are used as keys.
+3. Implement explicit directory filtering in all recursive filesystem search generators.
+4. Use `BOX` resampling for fast UI previews where high-quality downsampling is not critical.
